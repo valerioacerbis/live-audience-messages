@@ -44,6 +44,14 @@ function writeCache(feed: CachedFeed): void {
   }
 }
 
+function clearCache(): void {
+  try {
+    window.localStorage.removeItem(CACHE_KEY);
+  } catch {
+    // Idem: se non si riesce a scrivere, non si riusciva nemmeno a leggere prima.
+  }
+}
+
 export interface DisplayEngine {
   state: DisplayState;
   connection: MessageStreamState;
@@ -69,6 +77,10 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
 
   const onClear = useCallback(() => {
     dispatch({ type: "clear", now: Date.now() });
+    // Il panic button e' pensato per essere irreversibile: se la cache locale
+    // sopravvivesse, un refresh subito dopo rimetterebbe a schermo cio' che
+    // si voleva togliere, prima ancora che il feed dal server torni vuoto.
+    clearCache();
   }, []);
 
   const getCursor = useCallback(() => stateRef.current.cursor, []);
