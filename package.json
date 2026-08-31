@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "burst": "tsx scripts/burst-test.ts",
+    "burst:dirty": "tsx scripts/burst-test-dirty.ts",
     "qr": "tsx scripts/generate-qr.ts"
   },
   "dependencies": {
