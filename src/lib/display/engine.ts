@@ -1,0 +1,273 @@
+import { publicConfig } from "../config.public";
+import type { PublicMessage } from "../domain/types";
+import { holdDurationMs } from "./timing";
+
+/**
+ * Motore del display: coda, rotazione, dedup, tempi, macchina a stati.
+ *
+ * E' un reducer puro, senza React e senza I/O. Due motivi:
+ * 1. e' la parte con la logica piu' insidiosa (burst, riconnessioni,
+ *    duplicati, rotazione) ed e' quella che voglio poter testare in
+ *    millisecondi;
+ * 2. e' il confine che permette allo STEP 2 di sostituire il renderer
+ *    visuale senza toccare nulla di tutto questo.
+ *
+ * Un comportamento da tenere a mente leggendo il codice: **lo schermo non
+ * torna mai vuoto**. Se non arrivano messaggi nuovi, quelli gia' passati
+ * continuano a girare a rotazione; i nuovi hanno sempre la precedenza.
+ * Il QR vive su una pagina sua (`/qr`) e qui dentro non esiste.
+ */
+
+export type DisplayPhase = "idle" | "entering" | "holding" | "exiting";
+
+export interface DisplayState {
+  phase: DisplayPhase;
+  current: PublicMessage | null;
+  /** Il messaggio in scena e' una ripetizione, non un arrivo nuovo. */
+  isReplay: boolean;
+  /** Messaggi nuovi, mai mostrati. Hanno la precedenza sulla rotazione. */
+  queue: readonly PublicMessage[];
+  /**
+   * TUTTI i messaggi passati dal display, in ordine.
+   *
+   * Ha due usi. Il primo e' la rotazione: quando non arriva niente di nuovo,
+   * e' da qui che si ripesca. Il secondo e' lo STEP 2: la "rete viva" non
+   * mostra UN messaggio, mostra l'insieme accumulato di tutti.
+   */
+  all: readonly PublicMessage[];
+  /** Puntatore nel giro di rotazione. */
+  rotationIndex: number;
+  /** Serve a non ripetere due volte di fila lo stesso messaggio. */
+  lastShownId: string | null;
+  /** Timestamp di fine della fase corrente (ms epoch). */
+  phaseEndsAt: number;
+  seenIds: ReadonlySet<string>;
+  /** Ultimo `releasedAt` assorbito: e' il cursore verso l'API. */
+  cursor: string | null;
+  stats: {
+    received: number;
+    /** Messaggi unici andati a schermo. Le ripetizioni non contano. */
+    displayed: number;
+    dropped: number;
+  };
+}
+
+export type DisplayAction =
+  | { type: "ingest"; messages: readonly PublicMessage[]; now: number }
+  | { type: "tick"; now: number }
+  | { type: "remove"; id: string; now: number }
+  | { type: "clear"; now: number };
+
+export function initialDisplayState(): DisplayState {
+  return {
+    phase: "idle",
+    current: null,
+    isReplay: false,
+    queue: [],
+    all: [],
+    rotationIndex: 0,
+    lastShownId: null,
+    phaseEndsAt: 0,
+    seenIds: new Set(),
+    cursor: null,
+    stats: { received: 0, displayed: 0, dropped: 0 },
+  };
+}
+
+function laterCursor(a: string | null, b: string): string {
+  if (!a) return b;
+  return Date.parse(b) > Date.parse(a) ? b : a;
+}
+
+function enter(
+  state: DisplayState,
+  message: PublicMessage,
+  now: number,
+  extra: Partial<DisplayState>,
+): DisplayState {
+  return {
+    ...state,
+    ...extra,
+    phase: "entering",
+    current: message,
+    lastShownId: message.id,
+    phaseEndsAt: now + publicConfig.display.enterMs,
+  };
+}
+
+/**
+ * Sceglie il prossimo messaggio da mandare in scena.
+ *
+ * Priorita': prima i nuovi arrivi, poi la rotazione di quelli gia' passati.
+ * Cosi' chi ha appena scritto vede comparire il proprio messaggio subito,
+ * e nei momenti di calma lo schermo continua comunque a vivere.
+ */
+function advance(state: DisplayState, now: number): DisplayState {
+  if (state.phase !== "idle") return state;
+
+  const [next, ...rest] = state.queue;
+  if (next) {
+    return enter(state, next, now, {
+      queue: rest,
+      all: [...state.all, next],
+      isReplay: false,
+    });
+  }
+
+  if (state.all.length === 0) return state;
+
+  let index = state.rotationIndex % state.all.length;
+  // Con piu' di un messaggio disponibile, mai due volte lo stesso di fila.
+  if (state.all.length > 1 && state.all[index]?.id === state.lastShownId) {
+    index = (index + 1) % state.all.length;
+  }
+
+  const replay = state.all[index];
+  if (!replay) return state;
+
+  return enter(state, replay, now, {
+    rotationIndex: index + 1,
+    isReplay: true,
+  });
+}
+
+/** Avanzamento della macchina a stati sul battito dell'orologio. */
+function tick(state: DisplayState, now: number): DisplayState {
+  if (state.phase === "idle") return advance(state, now);
+  if (now < state.phaseEndsAt) return state;
+
+  switch (state.phase) {
+    case "entering":
+      return {
+        ...state,
+        phase: "holding",
+        phaseEndsAt: now + holdDurationMs(state.current?.body.length ?? 0, state.queue.length),
+      };
+
+    case "holding": {
+      // Se non c'e' altro da mostrare, il messaggio resta dov'e' invece di
+      // uscire su uno schermo vuoto: uscire per poi rientrare da solo sarebbe
+      // solo un lampeggio.
+      const hasAlternative = state.queue.length > 0 || state.all.length > 1;
+      if (!hasAlternative) return state;
+
+      return { ...state, phase: "exiting", phaseEndsAt: now + publicConfig.display.exitMs };
+    }
+
+    case "exiting":
+      return advance(
+        {
+          ...state,
+          phase: "idle",
+          current: null,
+          phaseEndsAt: 0,
+          stats: {
+            ...state.stats,
+            // Le ripetizioni non sono messaggi nuovi andati a schermo.
+            displayed: state.stats.displayed + (state.isReplay ? 0 : 1),
+          },
+        },
+        now,
+      );
+
+    default:
+      return state;
+  }
+}
+
+export function displayReducer(state: DisplayState, action: DisplayAction): DisplayState {
+  switch (action.type) {
+    case "ingest": {
+      const fresh: PublicMessage[] = [];
+      const seen = new Set(state.seenIds);
+      let cursor = state.cursor;
+
+      for (const message of action.messages) {
+        cursor = laterCursor(cursor, message.releasedAt);
+        // Dedup per id: e' la seconda linea di difesa dopo il cursore, e serve
+        // davvero, perche' dopo una riconnessione rileggiamo un po' indietro.
+        if (seen.has(message.id)) continue;
+        seen.add(message.id);
+        fresh.push(message);
+      }
+
+      if (fresh.length === 0) {
+        return cursor === state.cursor ? state : { ...state, cursor };
+      }
+
+      // Ordine di rilascio: e' l'ordine in cui il pubblico se li aspetta.
+      const queue = [...state.queue, ...fresh].sort((a, b) =>
+        a.releasedAt === b.releasedAt
+          ? a.id.localeCompare(b.id)
+          : a.releasedAt.localeCompare(b.releasedAt),
+      );
+
+      const overflow = Math.max(0, queue.length - publicConfig.display.maxQueueLength);
+
+      const ingested: DisplayState = {
+        ...state,
+        queue: overflow > 0 ? queue.slice(overflow) : queue,
+        seenIds: seen,
+        cursor,
+        stats: {
+          ...state.stats,
+          received: state.stats.received + fresh.length,
+          dropped: state.stats.dropped + overflow,
+        },
+      };
+
+      // Se lo schermo era fermo, il primo messaggio parte subito.
+      return advance(ingested, action.now);
+    }
+
+    case "tick":
+      return tick(state, action.now);
+
+    case "remove": {
+      // Ritiro immediato: un messaggio bloccato dall'operatore mentre e' gia'
+      // a schermo deve sparire adesso, non alla fine del suo turno.
+      //
+      // Va tolto ANCHE dallo storico, altrimenti la rotazione lo rimetterebbe
+      // in scena qualche minuto dopo: sarebbe il modo peggiore di scoprire
+      // che il ritiro non era definitivo.
+      const queue = state.queue.filter((m) => m.id !== action.id);
+      const all = state.all.filter((m) => m.id !== action.id);
+      if (queue.length === state.queue.length && all.length === state.all.length) {
+        return state;
+      }
+
+      const cleaned = { ...state, queue, all };
+
+      if (state.current?.id === action.id) {
+        return {
+          ...cleaned,
+          phase: "exiting",
+          phaseEndsAt: action.now + publicConfig.display.exitMs,
+        };
+      }
+      return cleaned;
+    }
+
+    case "clear":
+      // Panic button. Svuota anche lo storico: se restasse, la rotazione
+      // rimetterebbe a schermo esattamente cio' che si voleva togliere.
+      // Il cursore e la memoria dei visti sopravvivono, cosi' il primo poll
+      // successivo non fa rientrare tutta la serata.
+      return {
+        ...state,
+        phase: "idle",
+        current: null,
+        isReplay: false,
+        queue: [],
+        all: [],
+        rotationIndex: 0,
+        lastShownId: null,
+        phaseEndsAt: 0,
+      };
+
+    default: {
+      const exhaustive: never = action;
+      return exhaustive;
+    }
+  }
+}
