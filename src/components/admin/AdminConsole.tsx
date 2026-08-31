@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { publicConfig } from "@/lib/config.public";
 import type { ModerationMessage, ModerationMode } from "@/lib/domain/types";
@@ -45,7 +45,19 @@ const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
 export function AdminConsole({ token }: { token: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<Map<string, "approve" | "reject">>(new Map());
+  /**
+   * Id gia' moderati con successo, anche se il prossimo poll non se ne e'
+   * ancora accorto.
+   *
+   * Serve contro una corsa precisa: con piu' messaggi approvati di fila e
+   * molto in fretta, un poll partito PRIMA dei click puo' rispondere DOPO,
+   * portando ancora quei messaggi come "pending" e facendoli ricomparire per
+   * un istante. Un id qui dentro non puo' mai tornare pending — una volta
+   * moderato non lo e' piu' — quindi filtrarlo da ogni snapshot successivo e'
+   * sempre corretto, non solo "per ora".
+   */
+  const confirmed = useRef<Set<string>>(new Set());
   /** Il panic button chiede due tap: un tocco per sbaglio non e' recuperabile. */
   const [armedPanic, setArmedPanic] = useState(false);
   /** Stesso schema del panic button: due tap, e questo cancella per davvero. */
@@ -69,7 +81,12 @@ export function AdminConsole({ token }: { token: string }) {
       const data = (await call(
         `/api/admin/queue?eventSlug=${publicConfig.event.slug}`,
       )) as Snapshot;
-      setSnapshot(data);
+      // Un poll partito prima di un'approvazione puo' arrivare dopo: non deve
+      // far ricomparire cio' che sappiamo gia' essere stato moderato.
+      setSnapshot({
+        ...data,
+        pending: data.pending.filter((m) => !confirmed.current.has(m.id)),
+      });
       setError(null);
     } catch {
       setError("Connessione persa. Riprovo...");
@@ -77,35 +94,36 @@ export function AdminConsole({ token }: { token: string }) {
   }, [call]);
 
   useEffect(() => {
-    // Il linter segnala il setState dentro un effetto: qui e' voluto e non e'
-    // il caso che la regola vuole evitare. Non stiamo derivando stato da
-    // props, stiamo interrogando il server a intervalli — e questo polling e'
-    // anche il segnale di presenza dell'operatore. `refresh` e' asincrona,
-    // quindi nessun setState avviene durante l'effetto.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // `refresh` e' asincrona: nessun setState avviene durante l'effetto in
+    // se', solo dopo — stiamo interrogando il server a intervalli, e questo
+    // polling e' anche il segnale di presenza dell'operatore.
     void refresh();
     const timer = setInterval(() => void refresh(), POLL_MS);
     return () => clearInterval(timer);
   }, [refresh]);
 
   async function moderate(id: string, action: "approve" | "reject") {
-    setBusy((prev) => new Set(prev).add(id));
-    // Rimozione ottimistica: il tap deve sembrare istantaneo anche su 4G.
-    setSnapshot((prev) =>
-      prev ? { ...prev, pending: prev.pending.filter((m) => m.id !== id) } : prev,
-    );
+    // Niente rimozione ottimistica: il messaggio resta visibile, con un
+    // loader al posto dei bottoni, finche' il server non conferma davvero.
+    // Con tanti "Manda a schermo" premuti in fretta, un'uscita anticipata e'
+    // proprio cio' che faceva ricomparire messaggi gia' approvati.
+    setBusy((prev) => new Map(prev).set(id, action));
 
     try {
       await call("/api/admin/moderate", {
         method: "POST",
         body: JSON.stringify({ eventSlug: publicConfig.event.slug, id, action }),
       });
+      confirmed.current.add(id);
+      setSnapshot((prev) =>
+        prev ? { ...prev, pending: prev.pending.filter((m) => m.id !== id) } : prev,
+      );
     } catch {
       setError("Azione non riuscita. Ricarico la coda.");
       void refresh();
     } finally {
       setBusy((prev) => {
-        const next = new Set(prev);
+        const next = new Map(prev);
         next.delete(id);
         return next;
       });
@@ -196,41 +214,54 @@ export function AdminConsole({ token }: { token: string }) {
         <p className="py-16 text-center text-ink-faint">Nessun messaggio in attesa.</p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {snapshot.pending.map((message) => (
-            <li
-              key={message.id}
-              className="overflow-hidden rounded-2xl border border-line bg-surface-raised"
-            >
-              <div className="space-y-2 p-4">
-                {message.filterVerdict === "suspect" && (
-                  <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-amber-400">
-                    da verificare
-                  </span>
-                )}
-                <p className="text-lg leading-snug text-ink">{message.body}</p>
-                {message.name && <p className="text-sm text-ink-dim">&mdash; {message.name}</p>}
-              </div>
+          {snapshot.pending.map((message) => {
+            const pendingAction = busy.get(message.id);
+            return (
+              <li
+                key={message.id}
+                className={`overflow-hidden rounded-2xl border border-line bg-surface-raised transition-opacity ${
+                  pendingAction ? "opacity-60" : ""
+                }`}
+              >
+                <div className="space-y-2 p-4">
+                  {message.filterVerdict === "suspect" && (
+                    <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-amber-400">
+                      da verificare
+                    </span>
+                  )}
+                  <p className="text-lg leading-snug text-ink">{message.body}</p>
+                  {message.name && <p className="text-sm text-ink-dim">&mdash; {message.name}</p>}
+                </div>
 
-              <div className="grid grid-cols-2 gap-px bg-line">
-                <button
-                  type="button"
-                  disabled={busy.has(message.id)}
-                  onClick={() => void moderate(message.id, "reject")}
-                  className="bg-surface py-4 text-base font-semibold text-red-400 transition active:bg-red-500/15 disabled:opacity-40"
-                >
-                  Blocca
-                </button>
-                <button
-                  type="button"
-                  disabled={busy.has(message.id)}
-                  onClick={() => void moderate(message.id, "approve")}
-                  className="bg-surface py-4 text-base font-semibold text-emerald-400 transition active:bg-emerald-500/15 disabled:opacity-40"
-                >
-                  Manda a schermo
-                </button>
-              </div>
-            </li>
-          ))}
+                {pendingAction ? (
+                  <div className="flex items-center justify-center gap-2 border-t border-line bg-surface py-4 text-sm font-medium text-ink-dim">
+                    <span
+                      aria-hidden
+                      className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                    />
+                    {pendingAction === "approve" ? "Invio a schermo..." : "Blocco..."}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-px bg-line">
+                    <button
+                      type="button"
+                      onClick={() => void moderate(message.id, "reject")}
+                      className="bg-surface py-4 text-base font-semibold text-red-400 transition active:bg-red-500/15"
+                    >
+                      Blocca
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void moderate(message.id, "approve")}
+                      className="bg-surface py-4 text-base font-semibold text-emerald-400 transition active:bg-emerald-500/15"
+                    >
+                      Manda a schermo
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
