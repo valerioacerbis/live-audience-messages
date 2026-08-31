@@ -78,7 +78,7 @@ describe("createMessage", () => {
     const result = await createMessage(payload({ body: lungo }), ctx);
 
     expect(result.status).toBe(400);
-    expect(String(result.body.message)).toMatch(/280 caratteri/);
+    expect(String(result.body.message)).toMatch(/120 caratteri/);
   });
 
   it("collassa il flooding di caratteri invece di rifiutarlo", async () => {

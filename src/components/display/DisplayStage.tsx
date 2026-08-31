@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MotionConfig } from "motion/react";
 
 import { publicConfig } from "@/lib/config.public";
 import { useDisplayEngine } from "@/lib/display/useDisplayEngine";
@@ -24,39 +25,44 @@ export function DisplayStage({ rendererName }: { rendererName?: string }) {
   useWakeLock();
 
   return (
-    <main className="stage relative grid h-dvh w-full place-items-center bg-stage">
-      {/* Fondale: un respiro lentissimo, appena percettibile. Serve a non far
-          sembrare lo schermo spento quando non c'e' nessun messaggio. */}
-      <div
-        aria-hidden
-        className="animate-breathe pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(circle at 50% 45%, rgba(249,115,22,0.10), transparent 60%)",
-        }}
-      />
+    // Chi soffre di sensibilita' al movimento non deve subire l'ingresso/
+    // uscita lettera per lettera: "user" fa si' che Motion rispetti
+    // prefers-reduced-motion del sistema operativo automaticamente.
+    <MotionConfig reducedMotion="user">
+      <main className="stage relative grid h-dvh w-full place-items-center bg-stage">
+        {/* Fondale: un respiro lentissimo, appena percettibile. Serve a non far
+            sembrare lo schermo spento quando non c'e' nessun messaggio. */}
+        <div
+          aria-hidden
+          className="animate-breathe pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 45%, rgba(249,115,22,0.10), transparent 60%)",
+          }}
+        />
 
-      <div className="relative grid place-items-center px-[6vw]">
-        {state.current ? (
-          <MessageRenderer
-            name={rendererName}
-            current={state.current}
-            all={state.all}
-            phase={state.phase}
-            isReplay={state.isReplay}
-            stats={{
-              received: state.stats.received,
-              displayed: state.stats.displayed,
-              queueDepth: state.queue.length,
-            }}
-          />
-        ) : (
-          <StandbyScreen />
-        )}
-      </div>
+        <div className="relative grid place-items-center px-[6vw]">
+          {state.current ? (
+            <MessageRenderer
+              name={rendererName}
+              current={state.current}
+              all={state.all}
+              phase={state.phase}
+              isReplay={state.isReplay}
+              stats={{
+                received: state.stats.received,
+                displayed: state.stats.displayed,
+                queueDepth: state.queue.length,
+              }}
+            />
+          ) : (
+            <StandbyScreen />
+          )}
+        </div>
 
-      <ConnectionDot status={connection.status} queueDepth={state.queue.length} />
-    </main>
+        <ConnectionDot status={connection.status} queueDepth={state.queue.length} />
+      </main>
+    </MotionConfig>
   );
 }
 

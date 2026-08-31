@@ -26,7 +26,7 @@ export const publicConfig = {
 
   limits: {
     /** Lunghezza massima del messaggio, in *grafemi* (un'emoji = 1). */
-    messageMaxLength: int(process.env.NEXT_PUBLIC_MESSAGE_MAX_LENGTH, 280),
+    messageMaxLength: int(process.env.NEXT_PUBLIC_MESSAGE_MAX_LENGTH, 120),
     nameMaxLength: int(process.env.NEXT_PUBLIC_NAME_MAX_LENGTH, 24),
   },
 
