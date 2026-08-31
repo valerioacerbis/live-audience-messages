@@ -21,7 +21,7 @@ export type RealtimeDriver = "polling" | "supabase";
 export const publicConfig = {
   event: {
     slug: process.env.NEXT_PUBLIC_EVENT_SLUG || "default",
-    name: process.env.NEXT_PUBLIC_EVENT_NAME || "Live",
+    name: "Smooth Criminals",
   },
 
   limits: {

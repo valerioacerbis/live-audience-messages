@@ -88,7 +88,7 @@ export function MessageForm() {
       const data = (await response.json().catch(() => ({}))) as { message?: string };
 
       if (!response.ok) {
-        setError(data.message ?? "Non e' riuscito. Riprova tra un attimo.");
+        setError(data.message ?? "Non è riuscito. Riprova tra un attimo.");
         setPhase("error");
         return;
       }
@@ -118,10 +118,10 @@ export function MessageForm() {
           </svg>
         </div>
         <div className="space-y-2">
-          <p className="text-2xl font-semibold">La tua promessa e&apos; in cammino</p>
+          <p className="text-2xl font-semibold">La tua promessa è in cammino</p>
           <p className="text-balance text-ink-dim">
             La vedrai sul maxischermo durante il brano Man in the Mirror.
-            Perche&apos; il mondo cambia solo quando, per primo, cambi tu.
+            Perché il mondo cambia solo quando, per primo, cambi tu.
           </p>
         </div>
         <button
@@ -144,7 +144,7 @@ export function MessageForm() {
           rows={4}
           autoFocus
           enterKeyHint="done"
-          placeholder="Es. Ascoltare di piu', perdonare chi mi ha ferito..."
+          placeholder="Es. Ascoltare di più, perdonare chi mi ha ferito..."
           aria-label="La tua promessa"
           className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-4 text-lg leading-relaxed text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
         />
@@ -198,7 +198,7 @@ export function MessageForm() {
       </button>
 
       <p className="text-center text-xs text-ink-faint">
-        ✨ Potra&apos; ispirare tutta la sala. Potrebbe essere letta da un
+        ✨ Potrà ispirare tutta la sala. Potrebbe essere letta da un
         moderatore prima di comparire.
       </p>
     </form>

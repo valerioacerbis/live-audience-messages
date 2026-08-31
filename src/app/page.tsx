@@ -30,7 +30,7 @@ export default function AudiencePage() {
         </h1>
         <p className="text-balance text-ink-dim">
           Cosa sei disposto a fare, da oggi, per rendere il mondo un posto
-          migliore? La tua promessa comparira&apos; sul maxischermo e potra&apos;
+          migliore? La tua promessa comparirà sul maxischermo e potrà
           ispirare chi la legge dopo di te.
         </p>
       </header>
