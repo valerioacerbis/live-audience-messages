@@ -57,6 +57,18 @@ export interface DisplayState {
    * corretta dalla verita' del server invece di restare a schermo per sempre.
    */
   hydrated: boolean;
+  /**
+   * La serata e' stata chiusa dal moderatore: chi renderizza lo schermo deve
+   * mostrare la schermata di chiusura al posto della rotazione, invece di
+   * aggiungerlo come un altro stato della macchina qui dentro — la coda e i
+   * tempi restano quelli che erano, semplicemente non contano piu' nulla.
+   *
+   * Rispecchia sempre la verita' del server (stesso principio "campanella +
+   * rilettura" di tutto il resto): se il moderatore riapre la serata per
+   * errore o per test, torna `false` da solo al prossimo poll, senza bisogno
+   * di ricaricare la pagina.
+   */
+  ended: boolean;
   stats: {
     received: number;
     /** Messaggi unici andati a schermo. Le ripetizioni non contano. */
@@ -70,7 +82,8 @@ export type DisplayAction =
   | { type: "restoreCache"; messages: readonly PublicMessage[]; now: number }
   | { type: "tick"; now: number }
   | { type: "remove"; id: string; now: number }
-  | { type: "clear"; now: number };
+  | { type: "clear"; now: number }
+  | { type: "ended"; value: boolean };
 
 export function initialDisplayState(): DisplayState {
   return {
@@ -85,6 +98,7 @@ export function initialDisplayState(): DisplayState {
     seenIds: new Set(),
     cursor: null,
     hydrated: false,
+    ended: false,
     stats: { received: 0, displayed: 0, dropped: 0 },
   };
 }
@@ -318,6 +332,13 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
         lastShownId: null,
         phaseEndsAt: 0,
       };
+
+    case "ended":
+      // Rispecchia il valore del server, in entrambe le direzioni: non
+      // ricrea l'oggetto stato se non cambia nulla (evita render inutili a
+      // ogni poll), ma se il moderatore riapre la serata questo e' il modo
+      // in cui il display lo scopre da solo.
+      return state.ended === action.value ? state : { ...state, ended: action.value };
 
     default: {
       const exhaustive: never = action;

@@ -48,6 +48,10 @@ export interface Repository {
   setModerationMode(eventId: string, mode: ModerationMode): Promise<void>;
   /** Panic button: da questo istante in poi nulla di precedente torna a schermo. */
   clearDisplay(eventId: string, at: string): Promise<void>;
+  /** Chiusura della serata: mostra la schermata finale al posto della rotazione. */
+  endEvent(eventId: string, at: string): Promise<void>;
+  /** Riapre una serata chiusa per errore o per test: non tocca i messaggi. */
+  reopenEvent(eventId: string): Promise<void>;
 
   /* --- presenza operatore (dead-man switch) --- */
   touchOperator(eventId: string, at: string): Promise<void>;

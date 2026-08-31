@@ -103,6 +103,26 @@ export function createMemoryRepository(): Repository {
       }
     },
 
+    async endEvent(eventId, at) {
+      const db = await load();
+      const event = db.events.find((e) => e.id === eventId);
+      if (event) {
+        event.status = "ended";
+        event.endedAt = at;
+        await persist();
+      }
+    },
+
+    async reopenEvent(eventId) {
+      const db = await load();
+      const event = db.events.find((e) => e.id === eventId);
+      if (event) {
+        event.status = "live";
+        event.endedAt = null;
+        await persist();
+      }
+    },
+
     async touchOperator(eventId, at) {
       const db = await load();
       const event = db.events.find((e) => e.id === eventId);

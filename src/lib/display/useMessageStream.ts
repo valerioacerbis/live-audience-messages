@@ -28,6 +28,8 @@ export interface MessageStreamHandlers {
   onMessages(messages: PublicMessage[]): void;
   onRemove(id: string): void;
   onClear(): void;
+  /** La GET autorevole dice se la serata e' chiusa: vale in entrambe le direzioni. */
+  onEndedChange(ended: boolean): void;
   getCursor(): string | null;
 }
 
@@ -85,8 +87,13 @@ export function useMessageStream(
           const response = await fetch(`/api/messages?${params}`, { cache: "no-store" });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-          const data = (await response.json()) as { messages?: PublicMessage[] };
+          const data = (await response.json()) as { messages?: PublicMessage[]; ended?: boolean };
           if (data.messages?.length) handlersRef.current.onMessages(data.messages);
+          // Verita' della GET, non dell'evento realtime: arriva anche se la
+          // campanella non e' mai suonata, allo stesso identico polling che
+          // gia' gira per i messaggi. Chiamato sempre, non solo quando true:
+          // e' cosi' che una serata riaperta torna alla rotazione da sola.
+          handlersRef.current.onEndedChange(Boolean(data.ended));
 
           setState((prev) => ({ ...prev, lastSyncAt: Date.now(), failures: 0 }));
         } catch (error) {

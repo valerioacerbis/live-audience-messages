@@ -192,6 +192,33 @@ export async function clearDisplay(eventSlug: string): Promise<void> {
 }
 
 /**
+ * Chiude la serata: da questo momento il display mostra la schermata di
+ * chiusura fissa e non torna piu' alla rotazione dei messaggi. Definitivo
+ * quanto il panic button, ma non e' un'emergenza: e' la fine programmata.
+ */
+export async function closeEvent(eventSlug: string): Promise<void> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+  const at = new Date().toISOString();
+
+  await repo.endEvent(event.id, at);
+  await publishEvent(event.slug, makeEvent("event.ended", {}));
+}
+
+/**
+ * Riapre una serata chiusa per errore o per provare la schermata di
+ * chiusura in anteprima: non tocca i messaggi, solo lo stato dell'evento.
+ * Il display torna alla rotazione da solo al prossimo poll.
+ */
+export async function reopenEvent(eventSlug: string): Promise<void> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+
+  await repo.reopenEvent(event.id);
+  await publishEvent(event.slug, makeEvent("event.started", {}));
+}
+
+/**
  * Cancella tutti i messaggi dell'evento. Distruttiva e irreversibile: serve
  * a ripulire i messaggi di prova (es. il pomeriggio del concerto, dopo aver
  * verificato che tutto funzioni) senza portarseli dietro a schermo la sera.

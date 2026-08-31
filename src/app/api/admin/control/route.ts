@@ -7,7 +7,9 @@ import { isAdmin, jsonError, jsonOk, readJsonBody } from "@/lib/http/request";
 import {
   addSyntheticMessages,
   clearDisplay,
+  closeEvent,
   purgeMessages,
+  reopenEvent,
   setModerationMode,
 } from "@/lib/service/admin";
 
@@ -27,6 +29,14 @@ const schema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("add-synthetic"),
+    eventSlug: z.string().default(publicConfig.event.slug),
+  }),
+  z.object({
+    action: z.literal("end-event"),
+    eventSlug: z.string().default(publicConfig.event.slug),
+  }),
+  z.object({
+    action: z.literal("reopen-event"),
     eventSlug: z.string().default(publicConfig.event.slug),
   }),
 ]);
@@ -58,6 +68,12 @@ export async function POST(request: NextRequest): Promise<Response> {
         );
         return jsonOk({ ok: true, added, available });
       }
+      case "end-event":
+        await closeEvent(parsed.data.eventSlug);
+        return jsonOk({ ok: true });
+      case "reopen-event":
+        await reopenEvent(parsed.data.eventSlug);
+        return jsonOk({ ok: true });
     }
   } catch (error) {
     console.error("[api/admin/control]", error);

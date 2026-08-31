@@ -180,6 +180,42 @@ describe("interventi dell'operatore", () => {
   });
 });
 
+describe("chiusura della serata", () => {
+  it("segna la serata come chiusa", () => {
+    const state = displayReducer(initialDisplayState(), { type: "ended", value: true });
+    expect(state.ended).toBe(true);
+  });
+
+  it("non cambia identita' se il valore e' gia' quello (niente render inutili)", () => {
+    const state = initialDisplayState();
+    expect(displayReducer(state, { type: "ended", value: false })).toBe(state);
+  });
+
+  it("torna alla normalita' se il moderatore riapre la serata", () => {
+    // Bidirezionale, non un lucchetto a senso unico: il display deve
+    // rispecchiare la verita' del server anche quando torna indietro, senza
+    // bisogno di un ricaricamento manuale della pagina.
+    let state = displayReducer(initialDisplayState(), { type: "ended", value: true });
+    expect(state.ended).toBe(true);
+
+    state = displayReducer(state, { type: "ended", value: false });
+    expect(state.ended).toBe(false);
+  });
+
+  it("non tocca coda, storico o fase della rotazione", () => {
+    let state = ingest(initialDisplayState(), [msg("a", 0), msg("b", 100)], T0);
+    state = run(state, T0, T0 + 30_000, 100);
+    const before = { ...state };
+
+    state = displayReducer(state, { type: "ended", value: true });
+
+    expect(state.current).toEqual(before.current);
+    expect(state.queue).toEqual(before.queue);
+    expect(state.all).toEqual(before.all);
+    expect(state.phase).toBe(before.phase);
+  });
+});
+
 describe("resilienza di rete", () => {
   it("recupera il buco dopo una disconnessione, in ordine e senza doppioni", () => {
     let state = ingest(initialDisplayState(), [msg("a", 0)], T0);

@@ -18,8 +18,34 @@ Vercel.** Non più solo locale: `.env.local` gira con `DB_DRIVER=supabase` e
 (`live-audience-messages`) ha tutte le env var di produzione impostate, e ci
 sono deploy Production recenti.
 
-**Novità di questa sessione (display + form pubblico), da vedere su schermo
+**Novità di questa sessione (schermata di chiusura), da vedere su schermo
 vero nel Blocco B:**
+
+- Nuovo componente [`ClosingAnimation.tsx`](src/components/display/ClosingAnimation.tsx):
+  le parole della frase configurata (`NEXT_PUBLIC_CLOSING_PHRASE`, default
+  "Make that change") compaiono una alla volta con un ingresso a scatto, poi
+  resta scritta la frase intera con lo stesso ingresso lettera-per-lettera dei
+  messaggi del pubblico (`AnimatedLetters`) e uno zoom continuo lentissimo.
+- Pulsante fisso in `/admin` (non in `/admin/settings`: deve restare
+  raggiungibile senza uscire dalla coda) — "Chiudi la serata", doppio tap.
+  Interrompe la rotazione su `/display` e mostra la schermata di chiusura.
+- **Bidirezionale**: lo stesso pulsante diventa "Riapri la serata" (doppio
+  tap, non tocca i messaggi) quando l'evento è chiuso. Il display torna alla
+  rotazione da solo entro un ciclo di polling, senza ricaricare la pagina —
+  serve sia per un tap dato per sbaglio la sera vera, sia per provare
+  l'animazione in anteprima senza dover smontare l'evento di test.
+- Riusa `EventRecord.status` (`live`/`ended`, già nello schema DB, prima mai
+  scritto da nessun codice applicativo) e gli eventi realtime `event.ended`/
+  `event.started` (già nel tipo, prima mai pubblicati): nessuna migration,
+  nessun nuovo canale. `getFeed` porta `ended: boolean` nello stesso payload
+  dei messaggi — stesso modello "campanella + rilettura" di tutto il resto.
+- 4 nuovi test unitari sul reducer (`ended` come flag bidirezionale,
+  idempotente, che non tocca coda/storico/fase) — 119 test in tutto.
+- Rimossa la pagina di anteprima `src/app/dev/closing-animation` usata per
+  mettere a punto l'animazione: ora si prova direttamente dai due pulsanti
+  in `/admin`, non serve più una pagina isolata.
+
+**Novità della sessione precedente (display + form pubblico):**
 
 - `/display`: il messaggio entra lettera per lettera con blur (libreria
   `motion`, solo qui), con uno zoom continuo e impercettibile per tutta la
@@ -39,10 +65,20 @@ vero nel Blocco B:**
   mentre è a schermo, copy "La tua promessa è nello specchio." Resta CSS
   puro, niente `motion`: qui ogni kilobyte in più conta per la rete satura.
 
-**Verificato davvero:**
+**Verificato davvero (schermata di chiusura):**
 
-- 98 test (`npm test`), typecheck strict, lint — tutti puliti dopo le
-  modifiche sopra (build non ri-verificato in questa sessione)
+- 119 test (`npm test`), typecheck strict, lint — tutti puliti
+- End-to-end reale con due schede del browser (non solo test unitari): apri
+  `/admin` e `/display`, clicca "Chiudi la serata" (doppio tap) → il display
+  passa alla chiusura entro ~3s di polling, senza reload. Clicca "Riapri la
+  serata" → il display torna alla rotazione normale entro ~3s, sempre senza
+  reload. Verificato anche via chiamata diretta a `/api/admin/control`
+  (`end-event` → `status: "ended"`, `reopen-event` → `status: "live"`),
+  bypassando la UI per isolare backend da frontend.
+- Nessun errore in console su nessuna delle due pagine durante tutto il ciclo
+- Build non ri-verificato in questa sessione (solo `dev`, `typecheck`, `lint`, `test`)
+
+**Verificato nella sessione precedente:**
 - Flusso completo via HTTP: invio → moderazione → display, cursore ordinato, zero duplicati
 - Burst di 50 messaggi in 5s: 51 nel feed, 0 doppioni, ordine corretto
 - Dead-man switch end-to-end: operatore presente → coda; operatore sparisce → i
@@ -118,6 +154,10 @@ Aprire `/qr` e `/display` su uno schermo grande e controllare:
 - [ ] Fullscreen ("Entra in scena") e wake lock: lo schermo non si spegne in 15 minuti
 - [ ] Il pallino di stato è invisibile da lontano ma leggibile da vicino
 - [ ] `/admin` su un telefono vero: i bottoni si centrano al buio con una mano
+- [ ] Schermata di chiusura su schermo vero: "Chiudi la serata" da `/admin`
+      (doppio tap), le tre parole leggibili da lontano, frase finale con
+      zoom impercettibile. Poi "Riapri la serata" e verificare che `/display`
+      torni alla rotazione da solo entro pochi secondi, senza reload
 
 Comando utile per riempire lo schermo:
 ```bash
@@ -234,6 +274,7 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Liste profanità collassate a runtime** | I transformer di `obscenity` collassano le doppie e l'italiano ne è pieno: senza `collapseRuns` metà dei pattern non aggancerebbe nulla, **in silenzio**. C'è un test che verifica che ogni voce reagisca |
 | **`motion` solo su `/display`, non sul form pubblico** | Il form gira su rete cellulare satura al buio: ogni kilobyte in più è un invio in meno che va a buon fine. Le sue animazioni restano CSS puro; il maxischermo, caricato una volta sola su un solo dispositivo, si può permettere una libreria JS |
 | **Rotazione "meno mostrato prima"** | Con una canzone lunga e pochi messaggi, un giro mescolato non basta a evitare che qualcuno si veda ripetuto molto più degli altri: si pesca sempre tra i mostrati meno volte, mai lo stesso due volte di fila |
+| **Chiusura della serata bidirezionale, non un lucchetto** | "Chiudi la serata" riusa `status`/`event.ended` già esistenti nello schema; ma il display rispecchia la verità del server in entrambe le direzioni, cosi' "Riapri la serata" (doppio tap, non tocca i messaggi) fa ripartire la rotazione da sola, senza reload — necessario sia contro un tap per sbaglio la sera vera, sia per provare l'animazione senza smontare l'evento di test |
 
 ---
 
@@ -255,7 +296,7 @@ sparsi nel codice. `.env.example` li documenta tutti.
 
 ```bash
 npm run dev         # gira senza account e senza Docker
-npm test            # 98 test, ~200 ms
+npm test            # 119 test, ~300 ms
 npm run typecheck
 npm run lint
 npm run burst -- --count 50 --window 5    # da guardare a schermo

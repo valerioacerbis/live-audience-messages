@@ -166,6 +166,30 @@ dallo storico. Altrimenti tornerebbe a schermo qualche minuto dopo, ed è il
 modo peggiore di scoprire che il ritiro non era definitivo. Stesso discorso per
 il panic button, che svuota anche la rotazione.
 
+### La chiusura della serata
+
+Un pulsante fisso in `/admin` — non in `/admin/settings`, deve restare
+raggiungibile senza uscire dalla coda di moderazione — interrompe la
+rotazione e mostra `ClosingAnimation`
+([`src/components/display/ClosingAnimation.tsx`](src/components/display/ClosingAnimation.tsx)):
+le tre parole della frase configurata (`NEXT_PUBLIC_CLOSING_PHRASE`) compaiono
+una alla volta con un ingresso a scatto, poi resta scritta la frase intera con
+lo stesso ingresso lettera-per-lettera dei messaggi del pubblico e uno zoom
+continuo lentissimo.
+
+Riusa esattamente il modello "campanella + rilettura": `status` dell'evento
+(`live`/`ended`, già in `EventRecord`) è la fonte di verità, `event.ended` ed
+`event.started` sono solo campanelle che invitano il display a rifare una GET,
+e `getFeed` porta la verità (`ended: boolean`) nello stesso payload dei
+messaggi — nessun nuovo canale, nessuno stato solo-realtime.
+
+**Bidirezionale, non un lucchetto a senso unico**: se il moderatore riapre la
+serata (stesso pulsante, ora "Riapri la serata" — doppio tap, non tocca i
+messaggi) il display torna alla rotazione da solo entro un ciclo di polling,
+senza bisogno di un ricaricamento manuale. Serve sia per un tap dato per
+sbaglio la sera vera, sia per provare l'animazione in anteprima senza dover
+smontare l'evento di test.
+
 ---
 
 ## Passare a Supabase
@@ -284,6 +308,10 @@ software: è la rete del locale o il portatile che si addormenta.
       pubblico se ne accorga
 - [ ] Modalità di moderazione decisa e impostata su `/admin/settings`
 - [ ] Pulsante rosso "Svuota lo schermo" (in `/admin/settings`) mostrato a chi modera
+- [ ] Frase di chiusura (`NEXT_PUBLIC_CLOSING_PHRASE`) letta e confermata
+- [ ] Animazione di chiusura provata almeno una volta: "Chiudi la serata" in
+      `/admin` (doppio tap), verificata su `/display`, poi "Riapri la serata"
+      (doppio tap) per tornare alla rotazione prima del concerto vero
 
 ### Durante
 
@@ -294,6 +322,9 @@ software: è la rete del locale o il portatile che si addormenta.
 - Se qualcosa di brutto arriva a schermo: **Svuota lo schermo adesso** in
   `/admin/settings` (chiede due tap)
 - Se la coda si allunga troppo, passa a **automatica** dalla console
+- A fine serata: **Chiudi la serata** in `/admin` (chiede due tap). Definitivo
+  per il pubblico, ma non per te: **Riapri la serata** (stesso posto, stesso
+  doppio tap) se serve tornare indietro
 
 ### Se qualcosa va storto
 
@@ -357,7 +388,7 @@ posto che sa cosa sia Supabase. I componenti non fanno mai I/O diretto.
 ```bash
 npm run dev         # sviluppo
 npm run build       # build di produzione
-npm test            # 98 test
+npm test            # 119 test
 npm run typecheck   # TypeScript strict
 npm run lint
 npm run burst       # prova di carico da guardare a schermo

@@ -147,6 +147,22 @@ export function createSupabaseRepository(): Repository {
       if (error) fail("clearDisplay", error);
     },
 
+    async endEvent(eventId, at) {
+      const { error } = await getClient()
+        .from("events")
+        .update({ status: "ended", ended_at: at })
+        .eq("id", eventId);
+      if (error) fail("endEvent", error);
+    },
+
+    async reopenEvent(eventId) {
+      const { error } = await getClient()
+        .from("events")
+        .update({ status: "live", ended_at: null })
+        .eq("id", eventId);
+      if (error) fail("reopenEvent", error);
+    },
+
     async touchOperator(eventId, at) {
       const { error } = await getClient()
         .from("events")

@@ -83,12 +83,17 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
     clearCache();
   }, []);
 
+  const onEndedChange = useCallback((value: boolean) => {
+    dispatch({ type: "ended", value });
+  }, []);
+
   const getCursor = useCallback(() => stateRef.current.cursor, []);
 
   const connection = useMessageStream(eventSlug, {
     onMessages,
     onRemove,
     onClear,
+    onEndedChange,
     getCursor,
   });
 

@@ -27,6 +27,7 @@ const RECONCILE_TRIGGERS: ReadonlySet<RealtimeEventType> = new Set([
   "message.created",
   "message.approved",
   "event.started",
+  "event.ended",
 ]);
 
 export function shouldReconcile(event: RealtimeEvent): boolean {

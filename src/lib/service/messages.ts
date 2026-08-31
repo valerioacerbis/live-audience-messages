@@ -134,6 +134,8 @@ export interface FeedResult {
   serverTime: string;
   /** Cursore per la richiesta successiva. */
   cursor: string | null;
+  /** Serata chiusa dal moderatore: torna a `false` se la riapre. */
+  ended: boolean;
 }
 
 /**
@@ -178,6 +180,7 @@ export async function getFeed(args: {
     messages,
     serverTime: now.toISOString(),
     cursor: messages.at(-1)?.releasedAt ?? args.since,
+    ended: event.status === "ended",
   };
 }
 

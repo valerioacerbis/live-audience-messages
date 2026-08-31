@@ -67,6 +67,8 @@ export function AdminConsole({ token }: { token: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<Map<string, "approve" | "reject">>(new Map());
   const [addingSynthetic, setAddingSynthetic] = useState(false);
+  /** Due tap: un tocco per sbaglio non deve chiudere o riaprire la serata. */
+  const [armedEventToggle, setArmedEventToggle] = useState(false);
 
   async function moderate(id: string, action: "approve" | "reject") {
     // Niente rimozione ottimistica: il messaggio resta visibile, con un
@@ -117,6 +119,30 @@ export function AdminConsole({ token }: { token: string }) {
     }
   }
 
+  async function endEvent() {
+    try {
+      await call("/api/admin/control", {
+        method: "POST",
+        body: JSON.stringify({ action: "end-event", eventSlug: publicConfig.event.slug }),
+      });
+      void refresh();
+    } catch {
+      setError("Chiusura non riuscita. Riprova.");
+    }
+  }
+
+  async function reopenEvent() {
+    try {
+      await call("/api/admin/control", {
+        method: "POST",
+        body: JSON.stringify({ action: "reopen-event", eventSlug: publicConfig.event.slug }),
+      });
+      void refresh();
+    } catch {
+      setError("Riapertura non riuscita. Riprova.");
+    }
+  }
+
   if (!snapshot) {
     return (
       <p className="py-20 text-center text-ink-dim">
@@ -132,126 +158,180 @@ export function AdminConsole({ token }: { token: string }) {
   else if (syntheticExhausted) syntheticButtonLabel = "Frasi pronte esaurite";
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
-      <header className="space-y-3">
-        <h1 className="text-xl font-semibold">Moderazione</h1>
+    <>
+      <div className="flex flex-col gap-6 pb-28">
+        <header className="space-y-3">
+          <h1 className="text-xl font-semibold">Moderazione</h1>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-faint">
-          <span className="inline-flex items-center gap-1.5">
-            <StatDot value={snapshot.stats.rotating} urgency={urgency} />
-            in rotazione
-          </span>
-          {snapshot.event.moderationMode !== "auto" && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-faint">
             <span className="inline-flex items-center gap-1.5">
-              <StatDot value={snapshot.stats.pending} urgency="neutral" />
-              in coda
+              <StatDot value={snapshot.stats.rotating} urgency={urgency} />
+              in rotazione
             </span>
-          )}
-          <span className="inline-flex items-center gap-1.5">
-            <StatDot value={snapshot.stats.rejected} urgency="neutral" />
-            bloccati
-          </span>
-        </div>
+            {snapshot.event.moderationMode !== "auto" && (
+              <span className="inline-flex items-center gap-1.5">
+                <StatDot value={snapshot.stats.pending} urgency="neutral" />
+                in coda
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <StatDot value={snapshot.stats.rejected} urgency="neutral" />
+              bloccati
+            </span>
+          </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-ink-faint">
-            Modalità: <span className="font-medium text-ink-dim">{MODE_TITLES[snapshot.event.moderationMode]}</span>
-          </span>
-          <Link href="/admin/settings" className="text-ink-faint underline underline-offset-2">
-            Impostazioni
-          </Link>
-        </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-ink-faint">
+              Modalità: <span className="font-medium text-ink-dim">{MODE_TITLES[snapshot.event.moderationMode]}</span>
+            </span>
+            <Link href="/admin/settings" className="text-ink-faint underline underline-offset-2">
+              Impostazioni
+            </Link>
+          </div>
 
-        <div className="space-y-2">
-          {urgency === "low" && (
-            <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
-              {syntheticExhausted
-                ? "Poche frasi in rotazione, e le frasi pronte sono finite."
-                : "Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto."}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={() => void addSynthetic()}
-            disabled={addingSynthetic || syntheticExhausted}
-            className="w-full rounded-xl border border-line py-3 text-sm font-medium text-ink-dim transition active:bg-line disabled:opacity-60"
-          >
-            {syntheticButtonLabel}
-          </button>
-        </div>
-      </header>
+          <div className="space-y-2">
+            {urgency === "low" && (
+              <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
+                {syntheticExhausted
+                  ? "Poche frasi in rotazione, e le frasi pronte sono finite."
+                  : "Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto."}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => void addSynthetic()}
+              disabled={addingSynthetic || syntheticExhausted}
+              className="w-full rounded-xl border border-line py-3 text-sm font-medium text-ink-dim transition active:bg-line disabled:opacity-60"
+            >
+              {syntheticButtonLabel}
+            </button>
+          </div>
+        </header>
 
-      {error && (
-        <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
-          {error}
-        </p>
-      )}
+        {error && (
+          <p role="status" className="rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
+            {error}
+          </p>
+        )}
 
-      {notice && (
-        <p role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-          {notice}
-        </p>
-      )}
+        {notice && (
+          <p role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+            {notice}
+          </p>
+        )}
 
-      {snapshot.pending.length === 0 ? (
-        <p className="py-16 text-center text-ink-faint">Nessun messaggio in attesa.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {snapshot.pending.map((message) => {
-            const pendingAction = busy.get(message.id);
-            return (
-              <li
-                key={message.id}
-                className={`overflow-hidden rounded-2xl border border-line bg-surface-raised transition-opacity ${
-                  pendingAction ? "opacity-60" : ""
-                }`}
-              >
-                <div className="space-y-2 p-4">
-                  {message.filterVerdict === "suspect" && (
-                    <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-amber-400">
-                      da verificare
-                    </span>
-                  )}
-                  {message.source === "synthetic" && (
-                    <span className="inline-block rounded-full bg-sky-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-sky-400">
-                      🤖 pre-scritta
-                    </span>
-                  )}
-                  <p className="text-lg leading-snug text-ink">{message.body}</p>
-                  {message.name && <p className="text-sm text-ink-dim">&mdash; {message.name}</p>}
-                </div>
-
-                {pendingAction ? (
-                  <div className="flex items-center justify-center gap-2 border-t border-line bg-surface py-4 text-sm font-medium text-ink-dim">
-                    <span
-                      aria-hidden
-                      className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-                    />
-                    {pendingAction === "approve" ? "Invio a schermo..." : "Blocco..."}
+        {snapshot.pending.length === 0 ? (
+          <p className="py-16 text-center text-ink-faint">Nessun messaggio in attesa.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {snapshot.pending.map((message) => {
+              const pendingAction = busy.get(message.id);
+              return (
+                <li
+                  key={message.id}
+                  className={`overflow-hidden rounded-2xl border border-line bg-surface-raised transition-opacity ${
+                    pendingAction ? "opacity-60" : ""
+                  }`}
+                >
+                  <div className="space-y-2 p-4">
+                    {message.filterVerdict === "suspect" && (
+                      <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-amber-400">
+                        da verificare
+                      </span>
+                    )}
+                    {message.source === "synthetic" && (
+                      <span className="inline-block rounded-full bg-sky-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-sky-400">
+                        🤖 pre-scritta
+                      </span>
+                    )}
+                    <p className="text-lg leading-snug text-ink">{message.body}</p>
+                    {message.name && <p className="text-sm text-ink-dim">&mdash; {message.name}</p>}
                   </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-px bg-line">
-                    <button
-                      type="button"
-                      onClick={() => void moderate(message.id, "reject")}
-                      className="bg-surface py-4 text-base font-semibold text-red-400 transition active:bg-red-500/15"
-                    >
-                      Blocca
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void moderate(message.id, "approve")}
-                      className="bg-surface py-4 text-base font-semibold text-emerald-400 transition active:bg-emerald-500/15"
-                    >
-                      Manda a schermo
-                    </button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+
+                  {pendingAction ? (
+                    <div className="flex items-center justify-center gap-2 border-t border-line bg-surface py-4 text-sm font-medium text-ink-dim">
+                      <span
+                        aria-hidden
+                        className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                      />
+                      {pendingAction === "approve" ? "Invio a schermo..." : "Blocco..."}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-px bg-line">
+                      <button
+                        type="button"
+                        onClick={() => void moderate(message.id, "reject")}
+                        className="bg-surface py-4 text-base font-semibold text-red-400 transition active:bg-red-500/15"
+                      >
+                        Blocca
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void moderate(message.id, "approve")}
+                        className="bg-surface py-4 text-base font-semibold text-emerald-400 transition active:bg-emerald-500/15"
+                      >
+                        Manda a schermo
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* Fissa in fondo allo schermo, non in coda alla pagina: deve restare
+          raggiungibile con un pollice anche a lista lunga, senza scorrere.
+          Vive qui e non in /admin/settings perche' e' l'unica azione grave
+          che serve esattamente nel momento in cui questa pagina e' aperta.
+          Contestuale: chiudi/riapri non stanno mai insieme, e' sempre l'una
+          o l'altra a seconda di come sta l'evento adesso. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-3 backdrop-blur pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto w-full max-w-lg">
+          {snapshot.event.status === "ended" ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (!armedEventToggle) {
+                  setArmedEventToggle(true);
+                  window.setTimeout(() => setArmedEventToggle(false), 4000);
+                  return;
+                }
+                setArmedEventToggle(false);
+                void reopenEvent();
+              }}
+              className={`w-full rounded-xl border py-3.5 text-sm font-semibold transition ${
+                armedEventToggle
+                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-200"
+                  : "border-emerald-500/40 text-emerald-400 active:bg-emerald-500/15"
+              }`}
+            >
+              {armedEventToggle ? "Tocca di nuovo per confermare" : "Riapri la serata"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (!armedEventToggle) {
+                  setArmedEventToggle(true);
+                  window.setTimeout(() => setArmedEventToggle(false), 4000);
+                  return;
+                }
+                setArmedEventToggle(false);
+                void endEvent();
+              }}
+              className={`w-full rounded-xl border py-3.5 text-sm font-semibold transition ${
+                armedEventToggle
+                  ? "border-accent bg-accent/20 text-accent"
+                  : "border-accent/40 text-accent active:bg-accent/15"
+              }`}
+            >
+              {armedEventToggle ? "Tocca di nuovo per confermare" : "Chiudi la serata"}
+            </button>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

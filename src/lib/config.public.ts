@@ -22,6 +22,8 @@ export const publicConfig = {
   event: {
     slug: process.env.NEXT_PUBLIC_EVENT_SLUG || "default",
     name: "Smooth Criminals",
+    /** Frase dell'animazione di chiusura, mostrata dopo il pulsante in /admin. */
+    closingPhrase: process.env.NEXT_PUBLIC_CLOSING_PHRASE || "Make that change",
   },
 
   limits: {

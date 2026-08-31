@@ -5,6 +5,7 @@ import { MotionConfig } from "motion/react";
 
 import { publicConfig } from "@/lib/config.public";
 import { useDisplayEngine } from "@/lib/display/useDisplayEngine";
+import { ClosingAnimation } from "./ClosingAnimation";
 import { MessageRenderer } from "./renderers";
 import { ConnectionDot } from "./ConnectionDot";
 import { StandbyScreen } from "./StandbyScreen";
@@ -23,6 +24,13 @@ export function DisplayStage({ rendererName }: { rendererName?: string }) {
   const { state, connection } = useDisplayEngine(publicConfig.event.slug);
 
   useWakeLock();
+
+  // Chiusura della serata: sostituisce la scena intera invece di infilarsi
+  // tra rotazione e standby. Torna alla rotazione da sola se il moderatore
+  // riapre la serata (vedi `state.ended` in engine.ts).
+  if (state.ended) {
+    return <ClosingAnimation phrase={publicConfig.event.closingPhrase} />;
+  }
 
   return (
     // Chi soffre di sensibilita' al movimento non deve subire l'ingresso/
