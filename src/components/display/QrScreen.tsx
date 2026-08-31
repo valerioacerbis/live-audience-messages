@@ -35,10 +35,10 @@ export function QrScreen() {
             {publicConfig.event.name}
           </p>
           <p className="text-[clamp(2rem,4.5vw,5.5rem)] font-semibold leading-tight tracking-tight text-ink">
-            Scrivi il tuo messaggio
+            Il cambiamento comincia da te
           </p>
           <p className="text-[clamp(1rem,1.8vw,2rem)] font-light text-ink-dim">
-            Inquadra il codice con il telefono
+            Inquadra il codice e lascia la tua promessa
           </p>
         </div>
 

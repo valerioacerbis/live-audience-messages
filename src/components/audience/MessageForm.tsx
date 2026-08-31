@@ -112,15 +112,16 @@ export function MessageForm() {
   if (phase === "sent") {
     return (
       <div className="animate-enter flex flex-col items-center gap-6 py-12 text-center">
-        <div className="grid size-20 place-items-center rounded-full border border-accent/40 bg-accent/10">
-          <svg viewBox="0 0 24 24" className="size-9 stroke-accent" fill="none" strokeWidth={2.5}>
+        <div className="grid size-20 place-items-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
+          <svg viewBox="0 0 24 24" className="size-9 stroke-emerald-500" fill="none" strokeWidth={2.5}>
             <path d="M4 12.5 9.5 18 20 7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <div className="space-y-2">
-          <p className="text-2xl font-semibold">Messaggio inviato</p>
+          <p className="text-2xl font-semibold">La tua promessa e&apos; in cammino</p>
           <p className="text-balance text-ink-dim">
-            Tieni d&apos;occhio il maxischermo.
+            La vedrai sul maxischermo durante il brano Man in the Mirror.
+            Perche&apos; il mondo cambia solo quando, per primo, cambi tu.
           </p>
         </div>
         <button
@@ -128,7 +129,7 @@ export function MessageForm() {
           onClick={writeAnother}
           className="rounded-full border border-line px-6 py-3 text-sm font-medium text-ink-dim transition hover:border-ink-faint hover:text-ink active:scale-98"
         >
-          Scrivine un altro
+          Scrivine un&apos;altra
         </button>
       </div>
     );
@@ -140,11 +141,11 @@ export function MessageForm() {
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          rows={5}
+          rows={4}
           autoFocus
           enterKeyHint="done"
-          placeholder="Scrivi qui la tua dedica..."
-          aria-label="Il tuo messaggio"
+          placeholder="Es. Ascoltare di piu', perdonare chi mi ha ferito..."
+          aria-label="La tua promessa"
           className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-4 text-lg leading-relaxed text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
         />
         <div className="flex justify-end">
@@ -197,7 +198,8 @@ export function MessageForm() {
       </button>
 
       <p className="text-center text-xs text-ink-faint">
-        Il messaggio potrebbe essere letto da un moderatore prima di comparire.
+        ✨ Potra&apos; ispirare tutta la sala. Potrebbe essere letta da un
+        moderatore prima di comparire.
       </p>
     </form>
   );

@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { MessageForm } from "@/components/audience/MessageForm";
 import { publicConfig } from "@/lib/config.public";
 
@@ -10,17 +12,26 @@ import { publicConfig } from "@/lib/config.public";
  */
 export default function AudiencePage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-8 px-5 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-start gap-8 px-5 py-10 sm:justify-center">
       <header className="space-y-2 text-center">
+        <Image
+          src="/logo.webp"
+          alt=""
+          width={56}
+          height={56}
+          priority
+          className="mx-auto h-14 w-auto"
+        />
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
           {publicConfig.event.name}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-balance">
-          Il tuo messaggio sul maxischermo
+          Sei davanti allo specchio
         </h1>
         <p className="text-balance text-ink-dim">
-          Scrivi una dedica, un saluto, un pensiero. Comparira&apos; sullo schermo
-          durante il concerto.
+          Cosa sei disposto a fare, da oggi, per rendere il mondo un posto
+          migliore? La tua promessa comparira&apos; sul maxischermo e potra&apos;
+          ispirare chi la legge dopo di te.
         </p>
       </header>
 
