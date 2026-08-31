@@ -177,6 +177,13 @@ export function createMemoryRepository(): Repository {
       return clone(rows);
     },
 
+    async listBodiesBySource(eventId, source) {
+      const db = await load();
+      return db.messages
+        .filter((m) => m.eventId === eventId && m.source === source)
+        .map((m) => m.body);
+    },
+
     async moderate({ id, action, by, at, releasedAt }) {
       const db = await load();
       const message = db.messages.find((m) => m.id === id);
@@ -253,6 +260,17 @@ export function createMemoryRepository(): Repository {
         pending: rows.filter((m) => m.status === "pending").length,
         rejected: rows.filter((m) => m.status === "rejected").length,
       };
+    },
+
+    async countRotating(eventId, clearedAt, now) {
+      const db = await load();
+      return db.messages.filter((m) => {
+        if (m.eventId !== eventId) return false;
+        if (m.status !== "approved" || !m.releasedAt) return false;
+        if (m.releasedAt > now) return false;
+        if (clearedAt && m.releasedAt <= clearedAt) return false;
+        return true;
+      }).length;
     },
 
     async deleteAllMessages(eventId) {

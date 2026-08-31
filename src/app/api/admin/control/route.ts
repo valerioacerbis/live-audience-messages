@@ -1,9 +1,15 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { serverConfig } from "@/lib/config";
 import { publicConfig } from "@/lib/config.public";
 import { isAdmin, jsonError, jsonOk, readJsonBody } from "@/lib/http/request";
-import { clearDisplay, purgeMessages, setModerationMode } from "@/lib/service/admin";
+import {
+  addSyntheticMessages,
+  clearDisplay,
+  purgeMessages,
+  setModerationMode,
+} from "@/lib/service/admin";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -17,6 +23,10 @@ const schema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("purge"),
+    eventSlug: z.string().default(publicConfig.event.slug),
+  }),
+  z.object({
+    action: z.literal("add-synthetic"),
     eventSlug: z.string().default(publicConfig.event.slug),
   }),
 ]);
@@ -34,15 +44,21 @@ export async function POST(request: NextRequest): Promise<Response> {
     switch (parsed.data.action) {
       case "set-mode":
         await setModerationMode(parsed.data.eventSlug, parsed.data.mode);
-        break;
+        return jsonOk({ ok: true });
       case "clear":
         await clearDisplay(parsed.data.eventSlug);
-        break;
+        return jsonOk({ ok: true });
       case "purge":
         await purgeMessages(parsed.data.eventSlug);
-        break;
+        return jsonOk({ ok: true });
+      case "add-synthetic": {
+        const { added } = await addSyntheticMessages(
+          parsed.data.eventSlug,
+          serverConfig.moderation.syntheticBatchSize,
+        );
+        return jsonOk({ ok: true, added });
+      }
     }
-    return jsonOk({ ok: true });
   } catch (error) {
     console.error("[api/admin/control]", error);
     return jsonError(500, "Operazione non riuscita.");

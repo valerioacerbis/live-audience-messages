@@ -1,10 +1,13 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { serverConfig } from "../config";
 import { getRepository } from "../db";
 import type { ModerationAction } from "../db/types";
 import { makeEvent } from "../domain/events";
-import { isOperatorPresent, releaseTimestamp } from "../domain/policy";
+import { decideIntake, isOperatorPresent, releaseTimestamp } from "../domain/policy";
+import { pickSyntheticPhrases } from "../domain/syntheticPhrases";
 import {
   toModerationMessage,
   type ModerationMessage,
@@ -21,7 +24,18 @@ export interface AdminSnapshot {
     status: string;
   };
   pending: ModerationMessage[];
-  stats: { total: number; approved: number; pending: number; rejected: number };
+  stats: {
+    total: number;
+    approved: number;
+    pending: number;
+    rejected: number;
+    /**
+     * Quanti messaggi sono davvero eleggibili per il display ora: a
+     * differenza di `approved` (cumulativo), tiene conto del panic button.
+     * E' la risposta a "quante frasi stanno ruotando".
+     */
+    rotating: number;
+  };
   /** Quanto manca prima che il sistema si consideri non presidiato. */
   operatorTimeoutMs: number;
 }
@@ -38,11 +52,13 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
   const repo = getRepository();
   const event = await resolveEvent(eventSlug);
 
-  await repo.touchOperator(event.id, new Date().toISOString());
+  const now = new Date().toISOString();
+  await repo.touchOperator(event.id, now);
 
-  const [pending, stats] = await Promise.all([
+  const [pending, stats, rotating] = await Promise.all([
     repo.listByStatus(event.id, "pending", 100),
     repo.stats(event.id),
+    repo.countRotating(event.id, event.clearedAt, now),
   ]);
 
   return {
@@ -53,9 +69,64 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
       status: event.status,
     },
     pending: pending.map(toModerationMessage),
-    stats,
+    stats: { ...stats, rotating },
     operatorTimeoutMs: serverConfig.moderation.operatorTimeoutMs,
   };
+}
+
+/**
+ * Aggiunge un lotto di frasi pre-scritte (`syntheticPhrases.ts`) quando il
+ * moderatore ritiene che la rotazione sul display sia troppo scarna.
+ *
+ * Passano dalla stessa `decideIntake` di un messaggio reale, con verdetto
+ * `clean` fisso: sono pre-vagliate, quindi non serve rivalutarle. Chi preme
+ * il pulsante ha per forza /admin aperto, quindi in `manual`/`assisted`
+ * l'operatore risulta presente e le frasi vanno comunque in coda con un tap
+ * (nessuna scorciatoia rispetto a un messaggio reale "clean"); solo in `auto`
+ * saltano dritte a schermo.
+ */
+export async function addSyntheticMessages(
+  eventSlug: string,
+  count: number,
+): Promise<{ added: number }> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+  const operatorPresent = isOperatorPresent(event.operatorLastSeenAt);
+
+  const used = await repo.listBodiesBySource(event.id, "synthetic");
+  const phrases = pickSyntheticPhrases(used, count);
+
+  let anyApproved = false;
+  for (const body of phrases) {
+    const decision = decideIntake({
+      mode: event.moderationMode,
+      verdict: "clean",
+      operatorPresent,
+    });
+    const approved = decision.status === "approved";
+
+    const { created } = await repo.insertMessage({
+      eventId: event.id,
+      body,
+      authorName: null,
+      status: decision.status === "rejected" ? "rejected" : decision.status,
+      filterVerdict: "clean",
+      rejectReason: null,
+      releasedAt: approved ? releaseTimestamp("auto") : null,
+      moderatedBy: decision.status === "pending" ? null : "auto",
+      ipHash: "synthetic",
+      sessionId: randomUUID(),
+      clientMsgId: randomUUID(),
+      source: "synthetic",
+    });
+    if (approved && created) anyApproved = true;
+  }
+
+  if (anyApproved) {
+    await publishEvent(event.slug, makeEvent("message.created", {}));
+  }
+
+  return { added: phrases.length };
 }
 
 export async function moderateMessage(

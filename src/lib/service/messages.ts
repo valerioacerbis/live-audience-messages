@@ -118,6 +118,7 @@ export async function createMessage(
     ipHash: context.ipHash,
     sessionId: input.sessionId,
     clientMsgId: input.clientMsgId,
+    source: "user",
   });
 
   const result = accepted(message.id);

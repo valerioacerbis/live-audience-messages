@@ -18,6 +18,13 @@ export type ModerationMode = "manual" | "assisted" | "auto";
  */
 export type FilterVerdict = "clean" | "suspect" | "blocked";
 
+/**
+ * `user` : scritto dal pubblico dal telefono.
+ * `synthetic` : inserito dal moderatore con il pulsante "frasi pronte" per
+ *               riempire la rotazione quando il pubblico scrive poco.
+ */
+export type MessageSource = "user" | "synthetic";
+
 export type RejectReason =
   | "profanity"
   | "spam"
@@ -61,6 +68,7 @@ export interface MessageRecord {
   ipHash: string;
   sessionId: string;
   clientMsgId: string;
+  source: MessageSource;
 }
 
 /** Proiezione sicura: l'unica forma che esce verso il browser. */
@@ -80,6 +88,7 @@ export interface ModerationMessage {
   status: MessageStatus;
   filterVerdict: FilterVerdict;
   createdAt: string;
+  source: MessageSource;
 }
 
 export function toPublicMessage(m: MessageRecord): PublicMessage {
@@ -100,5 +109,6 @@ export function toModerationMessage(m: MessageRecord): ModerationMessage {
     status: m.status,
     filterVerdict: m.filterVerdict,
     createdAt: m.createdAt,
+    source: m.source,
   };
 }

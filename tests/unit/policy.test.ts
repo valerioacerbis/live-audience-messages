@@ -28,6 +28,7 @@ function message(overrides: Partial<MessageRecord> = {}): MessageRecord {
     ipHash: "hash",
     sessionId: "s1",
     clientMsgId: "c1",
+    source: "user",
     ...overrides,
   };
 }

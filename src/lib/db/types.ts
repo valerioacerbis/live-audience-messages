@@ -2,6 +2,7 @@ import type {
   EventRecord,
   FilterVerdict,
   MessageRecord,
+  MessageSource,
   MessageStatus,
   ModerationMode,
   RejectReason,
@@ -28,6 +29,7 @@ export interface NewMessage {
   ipHash: string;
   sessionId: string;
   clientMsgId: string;
+  source: MessageSource;
 }
 
 export interface RateLimitQuery {
@@ -76,6 +78,9 @@ export interface Repository {
 
   listByStatus(eventId: string, status: MessageStatus, limit: number): Promise<MessageRecord[]>;
 
+  /** Corpi gia' usati per una fonte, per non ripescare la stessa frase due volte. */
+  listBodiesBySource(eventId: string, source: MessageSource): Promise<string[]>;
+
   moderate(args: {
     id: string;
     action: ModerationAction;
@@ -102,6 +107,14 @@ export interface Repository {
     pending: number;
     rejected: number;
   }>;
+
+  /**
+   * Quanti messaggi sono davvero eleggibili per il display ora: stesso
+   * filtro di `listReleased` (approvati, maturati, non prima del panic
+   * button), ma come conteggio. E' la metrica "quanti stanno ruotando ora",
+   * diversa da `stats().approved` che e' cumulativo e ignora il panic button.
+   */
+  countRotating(eventId: string, clearedAt: string | null, now: string): Promise<number>;
 
   /** Solo test/dev: cancella tutti i messaggi dell'evento. Ritorna quanti. */
   deleteAllMessages(eventId: string): Promise<number>;

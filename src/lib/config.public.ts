@@ -60,6 +60,11 @@ export const publicConfig = {
     maxQueueLength: int(process.env.NEXT_PUBLIC_DISPLAY_MAX_QUEUE, 500),
   },
 
+  moderation: {
+    /** Sotto questa soglia l'admin avvisa che la rotazione e' scarna. */
+    lowRotationThreshold: int(process.env.NEXT_PUBLIC_LOW_ROTATION_THRESHOLD, 8),
+  },
+
   turnstile: {
     siteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || null,
     enabled: bool(process.env.NEXT_PUBLIC_TURNSTILE_ENABLED, false),

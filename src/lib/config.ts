@@ -67,6 +67,8 @@ export const serverConfig = {
     autoReleaseDelayMs: int(process.env.AUTO_RELEASE_DELAY_MS, 20_000),
     /** Finestra per fermare un messaggio gia' approvato prima che vada a schermo. */
     displayDelayMs: int(process.env.DISPLAY_DELAY_MS, 8000),
+    /** Quante frasi pre-scritte aggiunge un click sul pulsante "frasi pronte". */
+    syntheticBatchSize: int(process.env.SYNTHETIC_BATCH_SIZE, 10),
   },
 
   turnstileServer: {

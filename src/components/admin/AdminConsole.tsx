@@ -22,7 +22,7 @@ import type { ModerationMessage, ModerationMode } from "@/lib/domain/types";
 interface Snapshot {
   event: { slug: string; name: string; moderationMode: ModerationMode; status: string };
   pending: ModerationMessage[];
-  stats: { total: number; approved: number; pending: number; rejected: number };
+  stats: { total: number; approved: number; pending: number; rejected: number; rotating: number };
 }
 
 const POLL_MS = 3000;
@@ -45,7 +45,10 @@ const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
 export function AdminConsole({ token }: { token: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Conferma non urgente (es. "10 frasi aggiunte."), separata dagli errori. */
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<Map<string, "approve" | "reject">>(new Map());
+  const [addingSynthetic, setAddingSynthetic] = useState(false);
   /**
    * Id gia' moderati con successo, anche se il prossimo poll non se ne e'
    * ancora accorto.
@@ -139,6 +142,24 @@ export function AdminConsole({ token }: { token: string }) {
     }
   }
 
+  async function addSynthetic() {
+    setAddingSynthetic(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = (await call("/api/admin/control", {
+        method: "POST",
+        body: JSON.stringify({ action: "add-synthetic", eventSlug: publicConfig.event.slug }),
+      })) as { added: number };
+      setNotice(`${result.added} frasi aggiunte.`);
+      void refresh();
+    } catch {
+      setError("Aggiunta non riuscita.");
+    } finally {
+      setAddingSynthetic(false);
+    }
+  }
+
   if (!snapshot) {
     return (
       <p className="py-20 text-center text-ink-dim">
@@ -148,6 +169,7 @@ export function AdminConsole({ token }: { token: string }) {
   }
 
   const mode = snapshot.event.moderationMode;
+  const lowRotation = snapshot.stats.rotating < publicConfig.moderation.lowRotationThreshold;
 
   return (
     <div className="flex flex-col gap-6 pb-24">
@@ -155,7 +177,8 @@ export function AdminConsole({ token }: { token: string }) {
         <div className="flex items-baseline justify-between">
           <h1 className="text-xl font-semibold">Moderazione</h1>
           <span className="font-mono text-xs text-ink-faint tabular-nums">
-            {snapshot.stats.approved} a schermo &middot; {snapshot.stats.rejected} bloccati
+            {snapshot.stats.rotating} in rotazione &middot; {snapshot.stats.approved} a schermo
+            (tot.) &middot; {snapshot.stats.rejected} bloccati
           </span>
         </div>
 
@@ -175,6 +198,22 @@ export function AdminConsole({ token }: { token: string }) {
             ))}
           </div>
           <p className="px-1 text-xs leading-relaxed text-ink-faint">{MODE_LABELS[mode].hint}</p>
+        </div>
+
+        <div className="space-y-2">
+          {lowRotation && (
+            <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
+              Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void addSynthetic()}
+            disabled={addingSynthetic}
+            className="w-full rounded-xl border border-line py-3 text-sm font-medium text-ink-dim transition active:bg-line disabled:opacity-60"
+          >
+            {addingSynthetic ? "Aggiungo..." : "+ Aggiungi 10 frasi pronte"}
+          </button>
         </div>
 
         {/* Reset dei messaggi: volutamente defilato, non un bottone come gli
@@ -210,6 +249,12 @@ export function AdminConsole({ token }: { token: string }) {
         </p>
       )}
 
+      {notice && (
+        <p role="status" className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+          {notice}
+        </p>
+      )}
+
       {snapshot.pending.length === 0 ? (
         <p className="py-16 text-center text-ink-faint">Nessun messaggio in attesa.</p>
       ) : (
@@ -227,6 +272,11 @@ export function AdminConsole({ token }: { token: string }) {
                   {message.filterVerdict === "suspect" && (
                     <span className="inline-block rounded-full bg-amber-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-amber-400">
                       da verificare
+                    </span>
+                  )}
+                  {message.source === "synthetic" && (
+                    <span className="inline-block rounded-full bg-sky-500/15 px-2.5 py-1 text-[0.7rem] font-medium uppercase tracking-wide text-sky-400">
+                      🤖 pre-scritta
                     </span>
                   )}
                   <p className="text-lg leading-snug text-ink">{message.body}</p>

@@ -4,6 +4,7 @@ import { serverConfig } from "../config";
 import type {
   EventRecord,
   MessageRecord,
+  MessageSource,
   MessageStatus,
   ModerationMode,
 } from "../domain/types";
@@ -37,6 +38,7 @@ interface MessageRow {
   ip_hash: string;
   session_id: string;
   client_msg_id: string;
+  source: MessageSource;
 }
 
 interface EventRow {
@@ -67,6 +69,7 @@ const toMessage = (r: MessageRow): MessageRecord => ({
   ipHash: r.ip_hash,
   sessionId: r.session_id,
   clientMsgId: r.client_msg_id,
+  source: r.source,
 });
 
 const toEvent = (r: EventRow): EventRecord => ({
@@ -175,6 +178,7 @@ export function createSupabaseRepository(): Repository {
         p_ip_hash: input.ipHash,
         p_session_id: input.sessionId,
         p_client_msg_id: input.clientMsgId,
+        p_source: input.source,
       });
       if (error) fail("insertMessage", error);
 
@@ -239,6 +243,16 @@ export function createSupabaseRepository(): Repository {
         .limit(limit);
       if (error) fail("listByStatus", error);
       return (data as MessageRow[]).map(toMessage);
+    },
+
+    async listBodiesBySource(eventId, source) {
+      const { data, error } = await getClient()
+        .from("messages")
+        .select("body")
+        .eq("event_id", eventId)
+        .eq("source", source);
+      if (error) fail("listBodiesBySource", error);
+      return (data as Array<{ body: string }>).map((r) => r.body);
     },
 
     async moderate({ id, action, by, at, releasedAt }) {
@@ -316,6 +330,22 @@ export function createSupabaseRepository(): Repository {
         countFor("rejected"),
       ]);
       return { total, approved, pending, rejected };
+    },
+
+    async countRotating(eventId, clearedAt, now) {
+      let query = getClient()
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", eventId)
+        .eq("status", "approved")
+        .not("released_at", "is", null)
+        .lte("released_at", now);
+
+      if (clearedAt) query = query.gt("released_at", clearedAt);
+
+      const { count, error } = await query;
+      if (error) fail("countRotating", error);
+      return count ?? 0;
     },
 
     async deleteAllMessages(eventId) {

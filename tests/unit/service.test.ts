@@ -6,6 +6,7 @@ process.env.MEMORY_DB_FILE = ".data/test-messages.json";
 
 const { getRepository } = await import("@/lib/db");
 const { createMessage, getFeed, resolveEvent } = await import("@/lib/service/messages");
+const { addSyntheticMessages, setModerationMode } = await import("@/lib/service/admin");
 const { __resetMemoryRepository } = await import("@/lib/db/memory");
 const { serverConfig } = await import("@/lib/config");
 
@@ -197,5 +198,51 @@ describe("feed del display", () => {
 
     const second = await getFeed({ eventSlug: SLUG, since: first.cursor, limit: 100 });
     expect(second.messages).toHaveLength(0);
+  });
+});
+
+describe("addSyntheticMessages", () => {
+  it("in manuale restano in coda con l'etichetta 'synthetic'", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "manual");
+
+    const result = await addSyntheticMessages(SLUG, 10);
+    expect(result.added).toBe(10);
+
+    const event = await resolveEvent(SLUG);
+    const pending = await getRepository().listByStatus(event.id, "pending", 100);
+    expect(pending).toHaveLength(10);
+    expect(pending.every((m) => m.source === "synthetic")).toBe(true);
+    expect(pending.every((m) => m.filterVerdict === "clean")).toBe(true);
+
+    // Non toccano il display finche' nessuno le approva.
+    const feed = await getFeed({ eventSlug: SLUG, since: null, limit: 100 });
+    expect(feed.messages).toHaveLength(0);
+  });
+
+  it("in automatica saltano dritte a schermo, come un messaggio reale 'clean'", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "auto");
+
+    const result = await addSyntheticMessages(SLUG, 10);
+    expect(result.added).toBe(10);
+
+    const event = await resolveEvent(SLUG);
+    const approved = await getRepository().listByStatus(event.id, "approved", 100);
+    expect(approved).toHaveLength(10);
+    expect(approved.every((m) => m.source === "synthetic")).toBe(true);
+  });
+
+  it("due lotti di fila non ripetono una frase finche' il pool lo consente", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "manual");
+
+    await addSyntheticMessages(SLUG, 10);
+    await addSyntheticMessages(SLUG, 10);
+
+    const event = await resolveEvent(SLUG);
+    const pending = await getRepository().listByStatus(event.id, "pending", 100);
+    const bodies = pending.map((m) => m.body);
+    expect(new Set(bodies).size).toBe(bodies.length);
   });
 });
