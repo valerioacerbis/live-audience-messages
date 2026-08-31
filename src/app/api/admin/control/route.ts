@@ -52,11 +52,11 @@ export async function POST(request: NextRequest): Promise<Response> {
         await purgeMessages(parsed.data.eventSlug);
         return jsonOk({ ok: true });
       case "add-synthetic": {
-        const { added } = await addSyntheticMessages(
+        const { added, available } = await addSyntheticMessages(
           parsed.data.eventSlug,
           serverConfig.moderation.syntheticBatchSize,
         );
-        return jsonOk({ ok: true, added });
+        return jsonOk({ ok: true, added, available });
       }
     }
   } catch (error) {

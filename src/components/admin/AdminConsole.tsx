@@ -1,17 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useState } from "react";
 
 import { publicConfig } from "@/lib/config.public";
-import type { ModerationMessage, ModerationMode } from "@/lib/domain/types";
+import type { ModerationMode } from "@/lib/domain/types";
+import { useAdminSnapshot } from "./useAdminSnapshot";
 
 /**
  * Console di moderazione.
  *
  * Pensata per un telefono tenuto con una mano, al buio, mentre la band suona.
  * Due bersagli grandi, nessun menu, nessuna conferma sulle azioni normali
- * (sono reversibili). L'unica che ne chiede una e' lo svuotamento dello
- * schermo, perche' quella non si torna indietro.
+ * (sono reversibili). Tutto cio' che si tocca poche volte per serata — il
+ * cambio di modalita', il reset, lo svuotamento dello schermo — vive in
+ * `/admin/settings`, apposta fuori da qui: questa pagina deve restare quella
+ * su cui si sta per tutto lo show, senza distrazioni.
  *
  * Ha anche un ruolo che non si vede: il polling di questa pagina E' il segnale
  * di presenza dell'operatore. Aprirla o chiuderla e' l'unico gesto necessario
@@ -19,91 +23,50 @@ import type { ModerationMessage, ModerationMode } from "@/lib/domain/types";
  * puliti escono da soli invece di restare bloccati in coda.
  */
 
-interface Snapshot {
-  event: { slug: string; name: string; moderationMode: ModerationMode; status: string };
-  pending: ModerationMessage[];
-  stats: { total: number; approved: number; pending: number; rejected: number; rotating: number };
-}
-
-const POLL_MS = 3000;
-
-const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
-  manual: {
-    title: "Manuale",
-    hint: "Niente va a schermo senza la tua approvazione. Se chiudi questa pagina, lo schermo si ferma.",
-  },
-  assisted: {
-    title: "Assistita",
-    hint: "Mentre sei qui approvi tu. Se ti allontani, i messaggi puliti escono da soli e i dubbi restano fermi.",
-  },
-  auto: {
-    title: "Automatica",
-    hint: "Decide il filtro. I messaggi dubbi restano comunque qui ad aspettarti.",
-  },
+const MODE_TITLES: Record<ModerationMode, string> = {
+  manual: "Manuale",
+  assisted: "Assistita",
+  auto: "Automatica",
 };
 
+type Urgency = "low" | "normal" | "comfortable";
+
+/**
+ * Poche frasi in rotazione e' il segnale che conta per il moderatore:
+ * sotto `lowRotationThreshold` serve intervenire, sopra
+ * `comfortableRotationThreshold` non c'e' da pensarci per un pezzo.
+ */
+function rotationUrgency(count: number): Urgency {
+  const { lowRotationThreshold, comfortableRotationThreshold } = publicConfig.moderation;
+  if (count < lowRotationThreshold) return "low";
+  if (count < comfortableRotationThreshold) return "normal";
+  return "comfortable";
+}
+
+const URGENCY_DOT: Record<Urgency, string> = {
+  low: "bg-red-500/20 text-red-300",
+  normal: "bg-amber-500/20 text-amber-300",
+  comfortable: "bg-emerald-500/20 text-emerald-300",
+};
+
+function StatDot({ value, urgency }: { value: number; urgency: Urgency | "neutral" }) {
+  const palette = urgency === "neutral" ? "bg-surface-raised text-ink-dim" : URGENCY_DOT[urgency];
+  return (
+    <span
+      className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 font-mono text-xs font-semibold tabular-nums ${palette}`}
+    >
+      {value}
+    </span>
+  );
+}
+
 export function AdminConsole({ token }: { token: string }) {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { snapshot, setSnapshot, error, setError, call, confirmed, refresh } =
+    useAdminSnapshot(token);
   /** Conferma non urgente (es. "10 frasi aggiunte."), separata dagli errori. */
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<Map<string, "approve" | "reject">>(new Map());
   const [addingSynthetic, setAddingSynthetic] = useState(false);
-  /**
-   * Id gia' moderati con successo, anche se il prossimo poll non se ne e'
-   * ancora accorto.
-   *
-   * Serve contro una corsa precisa: con piu' messaggi approvati di fila e
-   * molto in fretta, un poll partito PRIMA dei click puo' rispondere DOPO,
-   * portando ancora quei messaggi come "pending" e facendoli ricomparire per
-   * un istante. Un id qui dentro non puo' mai tornare pending — una volta
-   * moderato non lo e' piu' — quindi filtrarlo da ogni snapshot successivo e'
-   * sempre corretto, non solo "per ora".
-   */
-  const confirmed = useRef<Set<string>>(new Set());
-  /** Il panic button chiede due tap: un tocco per sbaglio non e' recuperabile. */
-  const [armedPanic, setArmedPanic] = useState(false);
-  /** Stesso schema del panic button: due tap, e questo cancella per davvero. */
-  const [armedPurge, setArmedPurge] = useState(false);
-
-  const call = useCallback(
-    async (path: string, init?: RequestInit) => {
-      const response = await fetch(path, {
-        ...init,
-        headers: { "Content-Type": "application/json", "x-admin-token": token, ...init?.headers },
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    },
-    [token],
-  );
-
-  const refresh = useCallback(async () => {
-    try {
-      const data = (await call(
-        `/api/admin/queue?eventSlug=${publicConfig.event.slug}`,
-      )) as Snapshot;
-      // Un poll partito prima di un'approvazione puo' arrivare dopo: non deve
-      // far ricomparire cio' che sappiamo gia' essere stato moderato.
-      setSnapshot({
-        ...data,
-        pending: data.pending.filter((m) => !confirmed.current.has(m.id)),
-      });
-      setError(null);
-    } catch {
-      setError("Connessione persa. Riprovo...");
-    }
-  }, [call]);
-
-  useEffect(() => {
-    // `refresh` e' asincrona: nessun setState avviene durante l'effetto in
-    // se', solo dopo — stiamo interrogando il server a intervalli, e questo
-    // polling e' anche il segnale di presenza dell'operatore.
-    void refresh();
-    const timer = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(timer);
-  }, [refresh]);
 
   async function moderate(id: string, action: "approve" | "reject") {
     // Niente rimozione ottimistica: il messaggio resta visibile, con un
@@ -133,15 +96,6 @@ export function AdminConsole({ token }: { token: string }) {
     }
   }
 
-  async function control(body: Record<string, unknown>) {
-    try {
-      await call("/api/admin/control", { method: "POST", body: JSON.stringify(body) });
-      void refresh();
-    } catch {
-      setError("Comando non riuscito.");
-    }
-  }
-
   async function addSynthetic() {
     setAddingSynthetic(true);
     setError(null);
@@ -150,8 +104,11 @@ export function AdminConsole({ token }: { token: string }) {
       const result = (await call("/api/admin/control", {
         method: "POST",
         body: JSON.stringify({ action: "add-synthetic", eventSlug: publicConfig.event.slug }),
-      })) as { added: number };
+      })) as { added: number; available: number };
       setNotice(`${result.added} frasi aggiunte.`);
+      // Aggiorna subito il residuo disponibile, senza aspettare il prossimo
+      // poll: e' quello che disabilita il pulsante non appena si esaurisce.
+      setSnapshot((prev) => (prev ? { ...prev, syntheticAvailable: result.available } : prev));
       void refresh();
     } catch {
       setError("Aggiunta non riuscita.");
@@ -168,77 +125,58 @@ export function AdminConsole({ token }: { token: string }) {
     );
   }
 
-  const mode = snapshot.event.moderationMode;
-  const lowRotation = snapshot.stats.rotating < publicConfig.moderation.lowRotationThreshold;
+  const urgency = rotationUrgency(snapshot.stats.rotating);
+  const syntheticExhausted = snapshot.syntheticAvailable === 0;
+  let syntheticButtonLabel = "+ Aggiungi 10 frasi pronte";
+  if (addingSynthetic) syntheticButtonLabel = "Aggiungo...";
+  else if (syntheticExhausted) syntheticButtonLabel = "Frasi pronte esaurite";
 
   return (
-    <div className="flex flex-col gap-6 pb-24">
-      <header className="space-y-4">
-        <div className="flex items-baseline justify-between">
-          <h1 className="text-xl font-semibold">Moderazione</h1>
-          <span className="font-mono text-xs text-ink-faint tabular-nums">
-            {snapshot.stats.rotating} in rotazione &middot; {snapshot.stats.approved} a schermo
-            (tot.) &middot; {snapshot.stats.rejected} bloccati
+    <div className="flex flex-col gap-6 pb-6">
+      <header className="space-y-3">
+        <h1 className="text-xl font-semibold">Moderazione</h1>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-ink-faint">
+          <span className="inline-flex items-center gap-1.5">
+            <StatDot value={snapshot.stats.rotating} urgency={urgency} />
+            in rotazione
+          </span>
+          {snapshot.event.moderationMode !== "auto" && (
+            <span className="inline-flex items-center gap-1.5">
+              <StatDot value={snapshot.stats.pending} urgency="neutral" />
+              in coda
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5">
+            <StatDot value={snapshot.stats.rejected} urgency="neutral" />
+            bloccati
           </span>
         </div>
 
-        <div className="space-y-2">
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-surface-raised p-1">
-            {(Object.keys(MODE_LABELS) as ModerationMode[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => void control({ action: "set-mode", mode: option })}
-                className={`rounded-lg py-2.5 text-sm font-medium transition ${
-                  mode === option ? "bg-ink text-black" : "text-ink-dim active:bg-line"
-                }`}
-              >
-                {MODE_LABELS[option].title}
-              </button>
-            ))}
-          </div>
-          <p className="px-1 text-xs leading-relaxed text-ink-faint">{MODE_LABELS[mode].hint}</p>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-ink-faint">
+            Modalità: <span className="font-medium text-ink-dim">{MODE_TITLES[snapshot.event.moderationMode]}</span>
+          </span>
+          <Link href="/admin/settings" className="text-ink-faint underline underline-offset-2">
+            Impostazioni
+          </Link>
         </div>
 
         <div className="space-y-2">
-          {lowRotation && (
+          {urgency === "low" && (
             <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
-              Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto.
+              {syntheticExhausted
+                ? "Poche frasi in rotazione, e le frasi pronte sono finite."
+                : "Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto."}
             </p>
           )}
           <button
             type="button"
             onClick={() => void addSynthetic()}
-            disabled={addingSynthetic}
+            disabled={addingSynthetic || syntheticExhausted}
             className="w-full rounded-xl border border-line py-3 text-sm font-medium text-ink-dim transition active:bg-line disabled:opacity-60"
           >
-            {addingSynthetic ? "Aggiungo..." : "+ Aggiungi 10 frasi pronte"}
-          </button>
-        </div>
-
-        {/* Reset dei messaggi: volutamente defilato, non un bottone come gli
-            altri due. Serve poche volte (es. il pomeriggio del concerto, dopo
-            aver testato che tutto funzioni) ed e' irreversibile — non deve
-            essere a portata dello stesso gesto veloce usato durante lo show. */}
-        <div className="px-1 text-right">
-          <button
-            type="button"
-            onClick={() => {
-              if (!armedPurge) {
-                setArmedPurge(true);
-                window.setTimeout(() => setArmedPurge(false), 4000);
-                return;
-              }
-              setArmedPurge(false);
-              void control({ action: "purge" });
-            }}
-            className={`text-[0.7rem] underline-offset-2 transition ${
-              armedPurge
-                ? "font-semibold text-red-500 underline"
-                : "text-ink-faint/60 active:text-ink-faint"
-            }`}
-          >
-            {armedPurge ? "Tocca di nuovo: cancella tutto per sempre" : "Reset messaggi (test)"}
+            {syntheticButtonLabel}
           </button>
         </div>
       </header>
@@ -314,28 +252,6 @@ export function AdminConsole({ token }: { token: string }) {
           })}
         </ul>
       )}
-
-      <div className="fixed inset-x-0 bottom-0 flex flex-col gap-2 border-t border-line bg-stage/95 p-4 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => {
-            if (!armedPanic) {
-              setArmedPanic(true);
-              window.setTimeout(() => setArmedPanic(false), 4000);
-              return;
-            }
-            setArmedPanic(false);
-            void control({ action: "clear" });
-          }}
-          className={`w-full rounded-xl border py-3.5 text-sm font-semibold transition ${
-            armedPanic
-              ? "border-red-500 bg-red-500/20 text-red-200"
-              : "border-red-500/40 text-red-400 active:bg-red-500/15"
-          }`}
-        >
-          {armedPanic ? "Tocca di nuovo per confermare" : "Svuota lo schermo adesso"}
-        </button>
-      </div>
     </div>
   );
 }

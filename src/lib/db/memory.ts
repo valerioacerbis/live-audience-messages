@@ -172,7 +172,13 @@ export function createMemoryRepository(): Repository {
       const db = await load();
       const rows = db.messages
         .filter((m) => m.eventId === eventId && m.status === status)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        // I messaggi veri passano sempre prima di quelli autogenerati: chi
+        // modera deve smaltire prima le dediche reali. A parita' di fonte,
+        // il piu' vecchio prima.
+        .sort((a, b) => {
+          if (a.source !== b.source) return a.source === "user" ? -1 : 1;
+          return a.createdAt.localeCompare(b.createdAt);
+        })
         .slice(0, limit);
       return clone(rows);
     },

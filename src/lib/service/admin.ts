@@ -7,7 +7,7 @@ import { getRepository } from "../db";
 import type { ModerationAction } from "../db/types";
 import { makeEvent } from "../domain/events";
 import { decideIntake, isOperatorPresent, releaseTimestamp } from "../domain/policy";
-import { pickSyntheticPhrases } from "../domain/syntheticPhrases";
+import { countAvailablePhrases, pickSyntheticPhrases } from "../domain/syntheticPhrases";
 import {
   toModerationMessage,
   type ModerationMessage,
@@ -38,6 +38,8 @@ export interface AdminSnapshot {
   };
   /** Quanto manca prima che il sistema si consideri non presidiato. */
   operatorTimeoutMs: number;
+  /** Quante frasi pre-scritte restano da poter aggiungere senza ripeterne una. */
+  syntheticAvailable: number;
 }
 
 /**
@@ -55,10 +57,11 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
   const now = new Date().toISOString();
   await repo.touchOperator(event.id, now);
 
-  const [pending, stats, rotating] = await Promise.all([
+  const [pending, stats, rotating, usedSynthetic] = await Promise.all([
     repo.listByStatus(event.id, "pending", 100),
     repo.stats(event.id),
     repo.countRotating(event.id, event.clearedAt, now),
+    repo.listBodiesBySource(event.id, "synthetic"),
   ]);
 
   return {
@@ -71,6 +74,7 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
     pending: pending.map(toModerationMessage),
     stats: { ...stats, rotating },
     operatorTimeoutMs: serverConfig.moderation.operatorTimeoutMs,
+    syntheticAvailable: countAvailablePhrases(usedSynthetic),
   };
 }
 
@@ -88,7 +92,7 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
 export async function addSyntheticMessages(
   eventSlug: string,
   count: number,
-): Promise<{ added: number }> {
+): Promise<{ added: number; available: number }> {
   const repo = getRepository();
   const event = await resolveEvent(eventSlug);
   const operatorPresent = isOperatorPresent(event.operatorLastSeenAt);
@@ -97,7 +101,7 @@ export async function addSyntheticMessages(
   const phrases = pickSyntheticPhrases(used, count);
 
   let anyApproved = false;
-  for (const body of phrases) {
+  for (const phrase of phrases) {
     const decision = decideIntake({
       mode: event.moderationMode,
       verdict: "clean",
@@ -107,8 +111,8 @@ export async function addSyntheticMessages(
 
     const { created } = await repo.insertMessage({
       eventId: event.id,
-      body,
-      authorName: null,
+      body: phrase.body,
+      authorName: phrase.name,
       status: decision.status === "rejected" ? "rejected" : decision.status,
       filterVerdict: "clean",
       rejectReason: null,
@@ -126,7 +130,8 @@ export async function addSyntheticMessages(
     await publishEvent(event.slug, makeEvent("message.created", {}));
   }
 
-  return { added: phrases.length };
+  const available = countAvailablePhrases([...used, ...phrases.map((p) => p.body)]);
+  return { added: phrases.length, available };
 }
 
 export async function moderateMessage(

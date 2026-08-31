@@ -63,6 +63,18 @@ export const publicConfig = {
   moderation: {
     /** Sotto questa soglia l'admin avvisa che la rotazione e' scarna. */
     lowRotationThreshold: int(process.env.NEXT_PUBLIC_LOW_ROTATION_THRESHOLD, 8),
+    /**
+     * Da questa soglia in su la rotazione e' abbondante: pallino verde.
+     * 50 e' calcolato sui 7 minuti della canzone e sui tempi reali del
+     * display (holdBaseMs/holdPerCharMs in questo stesso file): con una
+     * frase di lunghezza media (~60 caratteri) restano a schermo circa
+     * 8-9s l'una, quindi ~47-50 frasi bastano a coprire l'intera canzone
+     * senza mai ripetersi.
+     */
+    comfortableRotationThreshold: int(
+      process.env.NEXT_PUBLIC_COMFORTABLE_ROTATION_THRESHOLD,
+      50,
+    ),
   },
 
   turnstile: {

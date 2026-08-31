@@ -6,9 +6,12 @@ process.env.MEMORY_DB_FILE = ".data/test-messages.json";
 
 const { getRepository } = await import("@/lib/db");
 const { createMessage, getFeed, resolveEvent } = await import("@/lib/service/messages");
-const { addSyntheticMessages, setModerationMode } = await import("@/lib/service/admin");
+const { addSyntheticMessages, getAdminSnapshot, setModerationMode } = await import(
+  "@/lib/service/admin"
+);
 const { __resetMemoryRepository } = await import("@/lib/db/memory");
 const { serverConfig } = await import("@/lib/config");
+const { SYNTHETIC_PHRASES } = await import("@/lib/domain/syntheticPhrases");
 
 /**
  * Test di integrazione sul service layer, con il driver `memory`.
@@ -244,5 +247,58 @@ describe("addSyntheticMessages", () => {
     const pending = await getRepository().listByStatus(event.id, "pending", 100);
     const bodies = pending.map((m) => m.body);
     expect(new Set(bodies).size).toBe(bodies.length);
+  });
+
+  it("un messaggio vero passa sempre prima delle autogenerate, anche se arrivato dopo", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "manual");
+
+    // Le sintetiche sono gia' in coda da prima...
+    await addSyntheticMessages(SLUG, 5);
+    // ...poi arriva un messaggio reale.
+    await createMessage(payload({ body: "Questa e' una dedica vera" }), ctx);
+
+    const event = await resolveEvent(SLUG);
+    const pending = await getRepository().listByStatus(event.id, "pending", 100);
+
+    expect(pending[0]!.source).toBe("user");
+    expect(pending.slice(1).every((m) => m.source === "synthetic")).toBe(true);
+  });
+
+  it("una volta esaurito il pool non aggiunge piu' nulla, mai una ripetizione", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "manual");
+
+    const total = SYNTHETIC_PHRASES.length;
+    let addedSoFar = 0;
+    while (addedSoFar < total) {
+      const batch = Math.min(10, total - addedSoFar);
+      const result = await addSyntheticMessages(SLUG, 10);
+      expect(result.added).toBe(batch);
+      addedSoFar += result.added;
+    }
+
+    const exhausted = await addSyntheticMessages(SLUG, 10);
+    expect(exhausted.added).toBe(0);
+    expect(exhausted.available).toBe(0);
+
+    const event = await resolveEvent(SLUG);
+    const pending = await getRepository().listByStatus(event.id, "pending", 200);
+    const bodies = pending.map((m) => m.body);
+    expect(pending).toHaveLength(total);
+    expect(new Set(bodies).size).toBe(total);
+  });
+
+  it("getAdminSnapshot espone quante frasi pronte restano disponibili", async () => {
+    await resolveEvent(SLUG);
+    await setModerationMode(SLUG, "manual");
+
+    const before = await getAdminSnapshot(SLUG);
+    expect(before.syntheticAvailable).toBe(SYNTHETIC_PHRASES.length);
+
+    await addSyntheticMessages(SLUG, 10);
+
+    const after = await getAdminSnapshot(SLUG);
+    expect(after.syntheticAvailable).toBe(SYNTHETIC_PHRASES.length - 10);
   });
 });

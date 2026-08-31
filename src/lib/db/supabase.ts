@@ -239,6 +239,11 @@ export function createSupabaseRepository(): Repository {
         .select("*")
         .eq("event_id", eventId)
         .eq("status", status)
+        // I messaggi veri passano sempre prima di quelli autogenerati: chi
+        // modera deve smaltire prima le dediche reali. Solo due valori
+        // possibili ("user" | "synthetic"), e "user" > "synthetic" in ordine
+        // alfabetico: descending li mette nell'ordine che vogliamo.
+        .order("source", { ascending: false })
         .order("created_at", { ascending: true })
         .limit(limit);
       if (error) fail("listByStatus", error);

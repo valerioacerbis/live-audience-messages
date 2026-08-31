@@ -41,6 +41,7 @@ Non serve un account. Non serve Docker. Non serve configurare niente.
 | Maxischermo — invito | http://localhost:3000/qr |
 | Maxischermo — messaggi | http://localhost:3000/display |
 | Moderazione | http://localhost:3000/admin?k=dev-admin-token |
+| Moderazione — impostazioni | http://localhost:3000/admin/settings |
 
 Con i default l'app gira con un file JSON al posto del database e senza
 WebSocket: la latenza è di ~2 secondi invece di ~150 ms, tutto il resto è
@@ -90,9 +91,10 @@ manuale è attiva e nessuno guarda la coda, **il maxischermo resta nero per
 tutto il concerto**. Un sistema che funziona perfettamente e non mostra niente.
 
 Da qui il *dead-man switch*: la presenza dell'operatore è un fatto osservato,
-non una configurazione. La pagina `/admin` interroga la sua coda di continuo, e
-quel polling **è** il segnale di presenza. Aprire o chiudere `/admin` è l'unico
-gesto necessario per cambiare il comportamento del sistema.
+non una configurazione. Ogni pagina sotto `/admin` (la coda su `/admin`, le
+impostazioni su `/admin/settings`) interroga la stessa coda di continuo, e
+quel polling **è** il segnale di presenza. Tenere aperta una qualunque delle
+due è l'unico gesto necessario per cambiare il comportamento del sistema.
 
 Il filtro produce tre esiti, non due:
 
@@ -104,7 +106,7 @@ Il filtro produce tre esiti, non due:
 
 Tre modalità, commutabili a caldo dalla console:
 
-- **manuale** — niente esce senza un umano. Se chiudi `/admin`, lo schermo si ferma.
+- **manuale** — niente esce senza un umano. Se chiudi la console, lo schermo si ferma.
 - **assistita** — *(default)* il comportamento descritto sopra.
 - **automatica** — decide il filtro; i dubbi restano comunque in coda.
 
@@ -280,8 +282,8 @@ software: è la rete del locale o il portatile che si addormenta.
 - [ ] Prova di disconnessione: stacca la rete del display per trenta secondi.
       Deve continuare a mostrare la coda e riprendere da solo, senza che il
       pubblico se ne accorga
-- [ ] Modalità di moderazione decisa e impostata
-- [ ] Pulsante rosso "Svuota lo schermo" mostrato a chi modera
+- [ ] Modalità di moderazione decisa e impostata su `/admin/settings`
+- [ ] Pulsante rosso "Svuota lo schermo" (in `/admin/settings`) mostrato a chi modera
 
 ### Durante
 
@@ -289,8 +291,8 @@ software: è la rete del locale o il portatile che si addormenta.
   `/admin`), passa alla scheda `/display`: da lì in poi solo messaggi
 - Il pallino in basso a destra del display: verde = realtime, azzurro =
   polling *(va bene lo stesso)*, rosso = rete assente
-- Se qualcosa di brutto arriva a schermo: **Svuota lo schermo adesso** in fondo
-  a `/admin` (chiede due tap)
+- Se qualcosa di brutto arriva a schermo: **Svuota lo schermo adesso** in
+  `/admin/settings` (chiede due tap)
 - Se la coda si allunga troppo, passa a **automatica** dalla console
 
 ### Se qualcosa va storto
@@ -324,7 +326,8 @@ src/
 │  ├─ page.tsx                 /          pubblico
 │  ├─ qr/page.tsx              /qr        maxischermo: invito
 │  ├─ display/page.tsx         /display   maxischermo: messaggi
-│  ├─ admin/page.tsx           /admin     moderazione
+│  ├─ admin/page.tsx           /admin              moderazione: coda
+│  ├─ admin/settings/page.tsx  /admin/settings     modalità, reset, panic
 │  └─ api/
 │     ├─ messages/             POST invio · GET feed · seen (telemetria)
 │     ├─ admin/                queue (+heartbeat) · moderate · control · session

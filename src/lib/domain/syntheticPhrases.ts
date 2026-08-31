@@ -5,44 +5,72 @@
  * Sono promesse in prima persona, a tema con il copy pubblico ("La tua
  * promessa e' nello specchio", durante "Man in the Mirror"): non hanno
  * bisogno di essere valutate per qualita' o contenuto, solo di apparire con
- * un'etichetta che le distingua da quelle scritte davvero dal pubblico.
+ * un'etichetta (nella coda di moderazione, mai a schermo) che le distingua
+ * da quelle scritte davvero dal pubblico.
+ *
+ * Deliberatamente variate nell'attacco e nel ritmo — non tutte "Prometto
+ * di...", nessuna riconoscibile come stampino — e con un nome proprio su
+ * circa meta' di esse, esattamente come il campo "nome" del form pubblico
+ * (facoltativo: molti lo lasciano vuoto). L'obiettivo e' che il pubblico non
+ * le distingua da una dedica vera guardando lo schermo.
  *
  * Deliberatamente entro il limite di caratteri del form pubblico
  * (`publicConfig.limits.messageMaxLength`), cosi' non serve alcun controllo
  * aggiuntivo prima di inserirle.
  */
 
-export const SYNTHETIC_PHRASES: readonly string[] = [
-  "Prometto di ascoltare di più e parlare di meno.",
-  "Da stasera provo a perdonare chi mi ha ferito.",
-  "Voglio guardarmi allo specchio senza girare lo sguardo.",
-  "Prometto di essere più gentile con chi mi sta vicino ogni giorno.",
-  "Oggi scelgo di cambiare io, prima di chiedere agli altri di farlo.",
-  "Prometto di chiamare più spesso chi amo, non solo quando serve.",
-  "Voglio smettere di rimandare le scuse che devo da troppo tempo.",
-  "Prometto di essere paziente con chi sta imparando, come ho fatto io.",
-  "Da domani provo a dire di più «grazie» e di meno «dovevi».",
-  "Prometto di credere di più in me, senza aspettare conferme.",
-  "Voglio essere la persona che vorrei incontrare io stesso.",
-  "Prometto di lasciare andare i rancori che non mi servono più.",
-  "Oggi mi prendo l'impegno di ascoltare senza giudicare subito.",
-  "Prometto di dire «ti voglio bene» più spesso, senza vergogna.",
-  "Voglio smettere di confrontarmi con chi non sono io.",
-  "Prometto di essere presente, non solo fisicamente, con chi amo.",
-  "Da stasera scelgo la gentilezza anche quando costa fatica.",
-  "Prometto di non lasciare le persone che amo senza un abbraccio.",
-  "Voglio imparare a chiedere scusa senza sentirmi sconfitto.",
-  "Prometto di dedicare tempo a chi mi ha sempre dedicato il suo.",
-  "Oggi decido di smettere di rimandare i sogni per paura.",
-  "Prometto di essere onesto con me stesso prima che con gli altri.",
-  "Voglio ricominciare a fare le domande difficili, anche a me stesso.",
-  "Prometto di non spegnere la voce che mi chiede di cambiare.",
-  "Da stasera provo a essere meno duro con chi sbaglia, incluso io.",
-  "Prometto di tornare a sorridere anche nei giorni difficili.",
-  "Voglio smettere di aspettare il momento giusto per essere felice.",
-  "Prometto di ringraziare chi ha creduto in me quando io non ci credevo.",
-  "Oggi scelgo di essere lo specchio in cui gli altri si riconoscono.",
-  "Prometto di ricordarmi, ogni giorno, che il cambiamento parte da qui.",
+export interface SyntheticPhrase {
+  body: string;
+  name: string | null;
+}
+
+export const SYNTHETIC_PHRASES: readonly SyntheticPhrase[] = [
+  { body: "Da stasera ascolto di più e parlo di meno.", name: "Marco" },
+  { body: "Ho deciso: perdono chi mi ha ferito, senza aspettare scuse.", name: null },
+  { body: "Voglio guardarmi allo specchio senza girare lo sguardo.", name: "Giulia" },
+  { body: "Basta rimandare le scuse che devo da troppo tempo.", name: null },
+  { body: "Da oggi provo a essere più gentile, anche quando è difficile.", name: "Sara" },
+  { body: "Non voglio più confrontarmi con chi non sono io.", name: null },
+  {
+    body: "È il momento di credere in me stesso, senza aspettare conferme da nessuno.",
+    name: null,
+  },
+  { body: "Chiamo più spesso le persone che amo, non solo quando serve.", name: "Luca" },
+  { body: "Smetto di aspettare il momento giusto per essere felice.", name: null },
+  { body: "Stasera scelgo la gentilezza, anche quando costa fatica.", name: "Chiara" },
+  { body: "Non lascio più andare via chi amo senza un abbraccio.", name: null },
+  { body: "Voglio imparare a chiedere scusa senza sentirmi sconfitto.", name: null },
+  { body: "Dedico più tempo a chi mi ha sempre dedicato il suo.", name: "Andrea" },
+  { body: "Oggi smetto di rimandare i sogni per paura.", name: null },
+  { body: "Voglio essere onesto con me stesso prima che con gli altri.", name: "Elena" },
+  { body: "Ricomincio a farmi le domande difficili, anche quelle scomode.", name: null },
+  { body: "Non spengo più la voce che mi chiede di cambiare.", name: null },
+  { body: "Da stasera sono meno duro con chi sbaglia, incluso io.", name: "Davide" },
+  { body: "Torno a sorridere anche nei giorni storti.", name: null },
+  { body: "Ringrazio chi ha creduto in me quando io non ci credevo.", name: "Francesca" },
+  { body: "Scelgo di essere lo specchio in cui gli altri si riconoscono.", name: null },
+  { body: "Il cambiamento parte da qui, da stasera.", name: "Matteo" },
+  { body: "Perché aspettare ancora per dire quello che provo davvero?", name: null },
+  { body: "Meno rancore, più leggerezza: è la promessa di stasera.", name: "Martina" },
+  { body: "Ho smesso di fingere di stare bene quando non è vero.", name: null },
+  { body: "Voglio essere presente per davvero, non solo con il corpo.", name: "Simone" },
+  { body: "Basta paragonarmi agli altri: mi guardo e mi basto.", name: null },
+  { body: "Da oggi dico più spesso «ti voglio bene», senza vergogna.", name: "Valentina" },
+  { body: "Ho imparato che cambiare si può, si deve solo iniziare.", name: null },
+  { body: "Meno giudizio, più ascolto: parto da me stasera.", name: "Riccardo" },
+  { body: "Voglio lasciar andare i pesi che porto da troppo tempo.", name: null },
+  {
+    body: "Oggi scelgo di essere gentile con la persona che sono stato ieri.",
+    name: "Ilaria",
+  },
+  { body: "Da stasera provo a non rimandare più i «ti amo».", name: null },
+  { body: "Voglio essere per gli altri quello che non ho avuto io.", name: "Federico" },
+  { body: "Basta scuse a metà: stasera dico quello che penso davvero.", name: null },
+  { body: "Ho deciso di fidarmi di più, anche quando fa paura.", name: "Alessia" },
+  { body: "Meno paura di sbagliare, più coraggio di provarci.", name: null },
+  { body: "Da oggi smetto di aspettare che siano gli altri a cambiare.", name: "Giorgio" },
+  { body: "Voglio tornare a fidarmi di me, come facevo da bambino.", name: null },
+  { body: "Stasera scelgo di essere più leggero con me stesso.", name: "Laura" },
 ];
 
 function shuffle<T>(items: readonly T[], rng: () => number): T[] {
@@ -55,26 +83,26 @@ function shuffle<T>(items: readonly T[], rng: () => number): T[] {
 }
 
 /**
- * Pesca `count` frasi, evitando quelle in `usedBodies` finche' il pool non
- * esaurito lo permette. Se il residuo non basta, ripesca dall'intero pool
- * invece di restituire meno frasi di quante richieste: il pulsante in
- * `/admin` deve poter essere premuto piu' volte in una serata senza fallire.
+ * Pesca fino a `count` frasi mai usate finora (per testo). Niente
+ * ripescaggio dal pool: una volta esaurite, restituisce meno frasi di
+ * quante richieste (anche zero) invece di ripetere una frase gia' vista dal
+ * pubblico — il pulsante in `/admin` si disabilita da solo a quel punto
+ * (vedi `countAvailablePhrases`).
  */
 export function pickSyntheticPhrases(
   usedBodies: readonly string[],
   count: number,
   rng: () => number = Math.random,
-): string[] {
+): SyntheticPhrase[] {
   if (SYNTHETIC_PHRASES.length === 0 || count <= 0) return [];
 
   const used = new Set(usedBodies);
-  const unused = shuffle(SYNTHETIC_PHRASES.filter((p) => !used.has(p)), rng);
-  if (unused.length >= count) return unused.slice(0, count);
+  const unused = shuffle(SYNTHETIC_PHRASES.filter((p) => !used.has(p.body)), rng);
+  return unused.slice(0, count);
+}
 
-  const rest = shuffle(SYNTHETIC_PHRASES, rng);
-  const result = [...unused];
-  for (let i = 0; result.length < count; i++) {
-    result.push(rest[i % rest.length]!);
-  }
-  return result;
+/** Quante frasi del pool non sono ancora state usate per questo evento. */
+export function countAvailablePhrases(usedBodies: readonly string[]): number {
+  const used = new Set(usedBodies);
+  return SYNTHETIC_PHRASES.filter((p) => !used.has(p.body)).length;
 }
