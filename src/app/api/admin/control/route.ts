@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { publicConfig } from "@/lib/config.public";
 import { isAdmin, jsonError, jsonOk, readJsonBody } from "@/lib/http/request";
-import { clearDisplay, setModerationMode } from "@/lib/service/admin";
+import { clearDisplay, purgeMessages, setModerationMode } from "@/lib/service/admin";
 
 const schema = z.discriminatedUnion("action", [
   z.object({
@@ -13,6 +13,10 @@ const schema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("clear"),
+    eventSlug: z.string().default(publicConfig.event.slug),
+  }),
+  z.object({
+    action: z.literal("purge"),
     eventSlug: z.string().default(publicConfig.event.slug),
   }),
 ]);
@@ -33,6 +37,9 @@ export async function POST(request: NextRequest): Promise<Response> {
         break;
       case "clear":
         await clearDisplay(parsed.data.eventSlug);
+        break;
+      case "purge":
+        await purgeMessages(parsed.data.eventSlug);
         break;
     }
     return jsonOk({ ok: true });

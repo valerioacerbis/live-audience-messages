@@ -317,5 +317,15 @@ export function createSupabaseRepository(): Repository {
       ]);
       return { total, approved, pending, rejected };
     },
+
+    async deleteAllMessages(eventId) {
+      const { data, error } = await getClient()
+        .from("messages")
+        .delete()
+        .eq("event_id", eventId)
+        .select("id");
+      if (error) fail("deleteAllMessages", error);
+      return (data as MessageRow[]).length;
+    },
   };
 }

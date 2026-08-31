@@ -201,6 +201,64 @@ describe("resilienza di rete", () => {
   });
 });
 
+describe("cache locale di ripartenza a freddo", () => {
+  it("il primo ingest vero corregge una cache stantia (es. messaggi cancellati)", () => {
+    // La scheda non era aperta quando i messaggi sono stati eliminati: la
+    // cache locale mostra ancora quelli vecchi finche' la rete non risponde.
+    let state = displayReducer(initialDisplayState(), {
+      type: "restoreCache",
+      messages: [msg("stale-1", 0), msg("stale-2", 100)],
+      now: T0,
+    });
+    expect(state.all.map((m) => m.id)).toEqual(["stale-1", "stale-2"]);
+    expect(state.hydrated).toBe(false);
+
+    // Il server, interrogato da zero (nessun cursore ancora confermato),
+    // dice che oggi non c'e' nulla: i messaggi vecchi devono sparire, non
+    // restare per sempre perche' "nessuno ha detto di toglierli".
+    state = ingest(state, [], T0 + 500);
+    expect(state.all).toEqual([]);
+    expect(state.queue).toEqual([]);
+    expect(state.hydrated).toBe(true);
+  });
+
+  it("il primo ingest vero sostituisce, non somma, se la cache aveva indovinato solo in parte", () => {
+    let state = displayReducer(initialDisplayState(), {
+      type: "restoreCache",
+      messages: [msg("stale", 0)],
+      now: T0,
+    });
+
+    state = ingest(state, [msg("real", 100)], T0 + 500);
+
+    // "stale" non era confermato dal server: non deve comparire nella
+    // rotazione insieme a "real".
+    expect(state.all.map((m) => m.id)).not.toContain("stale");
+    expect([state.current?.id, ...state.queue.map((m) => m.id)]).toContain("real");
+  });
+
+  it("dopo l'idratazione, ingest torna a sommarsi normalmente", () => {
+    let state = ingest(initialDisplayState(), [msg("a", 0)], T0);
+    expect(state.hydrated).toBe(true);
+
+    state = ingest(state, [msg("b", 100)], T0 + 500);
+    // "a" e' gia' in scena (non ancora mostrato del tutto, quindi non e'
+    // finito in `all`): "b" deve sommarsi in coda, non sostituirlo.
+    expect(state.current?.id).toBe("a");
+    expect(state.queue.map((m) => m.id)).toEqual(["b"]);
+  });
+
+  it("restoreCache non fa nulla se e' gia' arrivata una risposta vera dal server", () => {
+    const hydrated = ingest(initialDisplayState(), [msg("real", 0)], T0);
+    const after = displayReducer(hydrated, {
+      type: "restoreCache",
+      messages: [msg("stale", 0)],
+      now: T0 + 500,
+    });
+    expect(after).toBe(hydrated);
+  });
+});
+
 describe("rotazione", () => {
   it("continua a mostrare i messaggi passati quando non ne arrivano di nuovi", () => {
     let state = ingest(initialDisplayState(), [msg("a", 0), msg("b", 100)], T0);

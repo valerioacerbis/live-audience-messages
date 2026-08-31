@@ -96,7 +96,7 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
   useEffect(() => {
     const cached = readCache();
     if (cached?.messages.length) {
-      dispatch({ type: "ingest", messages: cached.messages, now: Date.now() });
+      dispatch({ type: "restoreCache", messages: cached.messages, now: Date.now() });
     }
   }, []);
 

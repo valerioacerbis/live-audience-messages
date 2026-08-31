@@ -115,6 +115,20 @@ export async function clearDisplay(eventSlug: string): Promise<void> {
   await publishEvent(event.slug, makeEvent("display.clear", {}));
 }
 
+/**
+ * Cancella tutti i messaggi dell'evento. Distruttiva e irreversibile: serve
+ * a ripulire i messaggi di prova (es. il pomeriggio del concerto, dopo aver
+ * verificato che tutto funzioni) senza portarseli dietro a schermo la sera.
+ */
+export async function purgeMessages(eventSlug: string): Promise<number> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+  const deleted = await repo.deleteAllMessages(event.id);
+  await repo.clearDisplay(event.id, new Date().toISOString());
+  await publishEvent(event.slug, makeEvent("display.clear", {}));
+  return deleted;
+}
+
 /** Telemetria: quali messaggi sono davvero andati a schermo. Non e' critica. */
 export async function markDisplayed(ids: readonly string[]): Promise<void> {
   await getRepository().markDisplayed(ids, new Date().toISOString());

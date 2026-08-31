@@ -254,6 +254,14 @@ export function createMemoryRepository(): Repository {
         rejected: rows.filter((m) => m.status === "rejected").length,
       };
     },
+
+    async deleteAllMessages(eventId) {
+      const db = await load();
+      const before = db.messages.length;
+      db.messages = db.messages.filter((m) => m.eventId !== eventId);
+      await persist();
+      return before - db.messages.length;
+    },
   };
 }
 

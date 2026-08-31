@@ -44,6 +44,14 @@ export interface DisplayState {
   seenIds: ReadonlySet<string>;
   /** Ultimo `releasedAt` assorbito: e' il cursore verso l'API. */
   cursor: string | null;
+  /**
+   * Diventa `true` al primo `ingest` che arriva DAVVERO dal server (non dalla
+   * cache locale di ripartenza a freddo). Finche' e' `false`, quell'ingest
+   * sostituisce lo stato invece di sommarsi: e' cosi' che una cache stantia
+   * (es. messaggi cancellati mentre questa scheda non era aperta) viene
+   * corretta dalla verita' del server invece di restare a schermo per sempre.
+   */
+  hydrated: boolean;
   stats: {
     received: number;
     /** Messaggi unici andati a schermo. Le ripetizioni non contano. */
@@ -54,6 +62,7 @@ export interface DisplayState {
 
 export type DisplayAction =
   | { type: "ingest"; messages: readonly PublicMessage[]; now: number }
+  | { type: "restoreCache"; messages: readonly PublicMessage[]; now: number }
   | { type: "tick"; now: number }
   | { type: "remove"; id: string; now: number }
   | { type: "clear"; now: number };
@@ -70,6 +79,7 @@ export function initialDisplayState(): DisplayState {
     phaseEndsAt: 0,
     seenIds: new Set(),
     cursor: null,
+    hydrated: false,
     stats: { received: 0, displayed: 0, dropped: 0 },
   };
 }
@@ -178,9 +188,18 @@ function tick(state: DisplayState, now: number): DisplayState {
 export function displayReducer(state: DisplayState, action: DisplayAction): DisplayState {
   switch (action.type) {
     case "ingest": {
+      // Il primo ingest DAVVERO dal server e' la verita': non si somma a
+      // quello che la cache locale aveva ipotizzato, lo sostituisce. Senza
+      // questo, messaggi cancellati mentre questa scheda non era aperta
+      // resterebbero a schermo per sempre (l'incremento successivo non ha
+      // motivo di rimuovere cio' che gia' c'era, sa solo aggiungere).
+      const base: DisplayState = state.hydrated
+        ? state
+        : { ...state, queue: [], all: [], seenIds: new Set(), cursor: null };
+
       const fresh: PublicMessage[] = [];
-      const seen = new Set(state.seenIds);
-      let cursor = state.cursor;
+      const seen = new Set(base.seenIds);
+      let cursor = base.cursor;
 
       for (const message of action.messages) {
         cursor = laterCursor(cursor, message.releasedAt);
@@ -192,11 +211,12 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
       }
 
       if (fresh.length === 0) {
-        return cursor === state.cursor ? state : { ...state, cursor };
+        if (base.hydrated && cursor === base.cursor) return state;
+        return { ...base, cursor, hydrated: true };
       }
 
       // Ordine di rilascio: e' l'ordine in cui il pubblico se li aspetta.
-      const queue = [...state.queue, ...fresh].sort((a, b) =>
+      const queue = [...base.queue, ...fresh].sort((a, b) =>
         a.releasedAt === b.releasedAt
           ? a.id.localeCompare(b.id)
           : a.releasedAt.localeCompare(b.releasedAt),
@@ -205,10 +225,11 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
       const overflow = Math.max(0, queue.length - publicConfig.display.maxQueueLength);
 
       const ingested: DisplayState = {
-        ...state,
+        ...base,
         queue: overflow > 0 ? queue.slice(overflow) : queue,
         seenIds: seen,
         cursor,
+        hydrated: true,
         stats: {
           ...state.stats,
           received: state.stats.received + fresh.length,
@@ -218,6 +239,14 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
 
       // Se lo schermo era fermo, il primo messaggio parte subito.
       return advance(ingested, action.now);
+    }
+
+    case "restoreCache": {
+      // Solo un placeholder visivo mentre si aspetta la rete: non tocca il
+      // cursore ne' segna lo stato come "hydrated", cosi' il prossimo ingest
+      // vero lo corregge invece di sommarcisi sopra.
+      if (state.hydrated || action.messages.length === 0) return state;
+      return advance({ ...state, all: [...action.messages] }, action.now);
     }
 
     case "tick":

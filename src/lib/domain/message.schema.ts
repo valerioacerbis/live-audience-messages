@@ -36,8 +36,13 @@ export type CreateMessageInput = z.infer<typeof createMessageSchema>;
 
 export const messagesQuerySchema = z.object({
   eventSlug: z.string().regex(SLUG).default(publicConfig.event.slug),
-  /** Cursore: ISO timestamp di `releasedAt`. */
-  since: z.iso.datetime().nullish(),
+  /**
+   * Cursore: ISO timestamp di `releasedAt`. Con `offset: true` perche' il
+   * driver Supabase restituisce i timestamptz come "+00:00", non come "Z" —
+   * senza, ogni richiesta col cursore (cioe' tutto il polling dopo il primo
+   * caricamento) verrebbe rifiutata con 400.
+   */
+  since: z.iso.datetime({ offset: true }).nullish(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
 

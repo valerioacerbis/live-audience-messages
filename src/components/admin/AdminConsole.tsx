@@ -48,6 +48,8 @@ export function AdminConsole({ token }: { token: string }) {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   /** Il panic button chiede due tap: un tocco per sbaglio non e' recuperabile. */
   const [armedPanic, setArmedPanic] = useState(false);
+  /** Stesso schema del panic button: due tap, e questo cancella per davvero. */
+  const [armedPurge, setArmedPurge] = useState(false);
 
   const call = useCallback(
     async (path: string, init?: RequestInit) => {
@@ -156,6 +158,32 @@ export function AdminConsole({ token }: { token: string }) {
           </div>
           <p className="px-1 text-xs leading-relaxed text-ink-faint">{MODE_LABELS[mode].hint}</p>
         </div>
+
+        {/* Reset dei messaggi: volutamente defilato, non un bottone come gli
+            altri due. Serve poche volte (es. il pomeriggio del concerto, dopo
+            aver testato che tutto funzioni) ed e' irreversibile — non deve
+            essere a portata dello stesso gesto veloce usato durante lo show. */}
+        <div className="px-1 text-right">
+          <button
+            type="button"
+            onClick={() => {
+              if (!armedPurge) {
+                setArmedPurge(true);
+                window.setTimeout(() => setArmedPurge(false), 4000);
+                return;
+              }
+              setArmedPurge(false);
+              void control({ action: "purge" });
+            }}
+            className={`text-[0.7rem] underline-offset-2 transition ${
+              armedPurge
+                ? "font-semibold text-red-500 underline"
+                : "text-ink-faint/60 active:text-ink-faint"
+            }`}
+          >
+            {armedPurge ? "Tocca di nuovo: cancella tutto per sempre" : "Reset messaggi (test)"}
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -206,7 +234,7 @@ export function AdminConsole({ token }: { token: string }) {
         </ul>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-line bg-stage/95 p-4 backdrop-blur">
+      <div className="fixed inset-x-0 bottom-0 flex flex-col gap-2 border-t border-line bg-stage/95 p-4 backdrop-blur">
         <button
           type="button"
           onClick={() => {

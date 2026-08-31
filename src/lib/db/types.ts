@@ -102,4 +102,7 @@ export interface Repository {
     pending: number;
     rejected: number;
   }>;
+
+  /** Solo test/dev: cancella tutti i messaggi dell'evento. Ritorna quanti. */
+  deleteAllMessages(eventId: string): Promise<number>;
 }
