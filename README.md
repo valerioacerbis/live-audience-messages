@@ -133,6 +133,13 @@ rilascio non sono stati costruiti: sono una conseguenza del cursore.
 Per sapere quando è il momento di passare, guarda i contatori su `/admin`:
 sono già lì, sul telefono di chi modera.
 
+Il testo entra lettera per lettera con un blur morbido (libreria `motion`),
+con un piccolo zoom continuo per tutta la permanenza a schermo; l'uscita è un
+fadeout semplice, non lettera per lettera. `motion` vive solo qui: il form
+del pubblico (`src/components/audience/MessageForm.tsx`) resta CSS puro,
+perché gira su un telefono con rete cellulare satura dove ogni kilobyte in
+più è un invio in meno che va a buon fine.
+
 ### Il motore
 
 È un reducer puro — coda, rotazione, dedup, tempi, macchina a stati — senza
@@ -140,9 +147,12 @@ React e senza I/O ([`src/lib/display/engine.ts`](src/lib/display/engine.ts)).
 
 **Lo schermo non torna mai vuoto.** I messaggi nuovi hanno sempre la
 precedenza; quando non ne arrivano, quelli già passati continuano a girare a
-rotazione, senza mai ripetere due volte di fila lo stesso. Con un solo
-messaggio in tutto, quello resta in scena invece di uscire e rientrare da solo:
-sarebbe solo un lampeggio.
+rotazione, senza mai ripetere due volte di fila lo stesso. La scelta di chi
+rientra non segue un giro fisso: pesca sempre tra i messaggi mostrati **meno
+volte finora** (pareggio casuale) — con una canzone lunga e pochi messaggi è
+quello che evita che qualcuno se ne veda ripetuto uno molto più degli altri.
+Con un solo messaggio in tutto, quello resta in scena invece di uscire e
+rientrare da solo: sarebbe solo un lampeggio.
 
 Il tempo di permanenza cresce con la lunghezza del messaggio e si comprime
 verso il minimo man mano che la coda si allunga: mostrare alle 23:10 un
@@ -291,7 +301,7 @@ software: è la rete del locale o il portatile che si addormenta.
 | Lo schermo non mostra niente e la coda è piena | Nessuno sta moderando in modalità *manuale*: passa ad *assistita* |
 | Lo schermo è fermo, il pallino è rosso | Controlla la rete del display. La coda già scaricata continua comunque |
 | Arrivano troppi messaggi | Alza `RL_SESSION_WINDOW_MS`, oppure lascia fare alla compressione automatica dei tempi |
-| Spam da fuori | Accendi Turnstile, oppure cambia il token dell'evento e rigenera il QR |
+| Spam da fuori | Accendi Turnstile |
 
 ---
 
@@ -344,7 +354,7 @@ posto che sa cosa sia Supabase. I componenti non fanno mai I/O diretto.
 ```bash
 npm run dev         # sviluppo
 npm run build       # build di produzione
-npm test            # 79 test
+npm test            # 98 test
 npm run typecheck   # TypeScript strict
 npm run lint
 npm run burst       # prova di carico da guardare a schermo

@@ -327,6 +327,51 @@ describe("rotazione", () => {
     expect(state.stats.displayed).toBe(2);
     expect(state.all).toHaveLength(2);
   });
+
+  it("ogni giro mostra tutti i messaggi una volta, ma l'ordine cambia da un giro all'altro", () => {
+    const messages = Array.from({ length: 6 }, (_, i) => msg(`m${i}`, i));
+    const ids = new Set(messages.map((m) => m.id));
+    let state = ingest(initialDisplayState(), messages, T0);
+
+    // Sequenza dei soli arrivi in rotazione (isReplay), deduplicata sulle
+    // transizioni: cosi' ignoriamo sia lo smaltimento iniziale della coda
+    // (che non e' rotazione) sia il fatto di ricampionare lo stesso "current"
+    // a ogni tick mentre resta in scena.
+    const shown: string[] = [];
+    let previous: string | null = null;
+    for (let t = T0; t <= T0 + 300_000; t += 100) {
+      state = displayReducer(state, { type: "tick", now: t });
+      const id = state.current?.id ?? null;
+      if (id && id !== previous && state.isReplay) shown.push(id);
+      previous = id;
+    }
+
+    // Raggruppa greedily in giri: un giro si chiude quando ha mostrato tutti
+    // gli id una volta. Se un id si ripetesse prima che il giro sia completo,
+    // il Set del giro in corso non conterrebbe piu' size 6 alla chiusura, e il
+    // controllo sotto lo scoprirebbe.
+    const laps: string[][] = [[]];
+    let remaining = new Set(ids);
+    for (const id of shown) {
+      const currentLap = laps[laps.length - 1];
+      currentLap?.push(id);
+      remaining.delete(id);
+      if (remaining.size === 0) {
+        remaining = new Set(ids);
+        if (laps.length < 3) laps.push([]);
+      }
+    }
+
+    expect(laps).toHaveLength(3);
+    for (const lap of laps) {
+      expect(new Set(lap)).toEqual(ids);
+    }
+
+    // Con 6! ordini possibili, due giri identici per puro caso sono
+    // trascurabili: se capitasse davvero significherebbe che il pareggio
+    // casuale tra i "meno mostrati" non sta funzionando.
+    expect(laps[0]?.join(",")).not.toBe(laps[1]?.join(","));
+  });
 });
 
 describe("ritiro di un messaggio con la rotazione attiva", () => {

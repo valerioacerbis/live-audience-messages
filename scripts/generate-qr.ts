@@ -4,9 +4,8 @@
  *   npm run qr -- --url https://tuo-dominio.vercel.app
  *   npm run qr -- --url https://tuo-dominio.vercel.app --out qr.svg
  *
- * Il QR punta alla pagina del pubblico. Se un giorno il link finisse in giro,
- * si cambia il token dell'evento e si rigenera: il codice vecchio smette di
- * funzionare senza toccare una riga di codice.
+ * Il QR punta alla pagina del pubblico. Contro lo spam da fuori c'e'
+ * Turnstile (spento di default, si accende da env).
  */
 
 import { writeFile } from "node:fs/promises";
@@ -20,10 +19,8 @@ function arg(flag: string, fallback: string | null = null): string | null {
 async function main(): Promise<void> {
   const url = arg("url", "http://localhost:3000")!;
   const out = arg("out");
-  const token = arg("token");
 
   const target = new URL(url);
-  if (token) target.searchParams.set("t", token);
 
   // Livello H: un QR proiettato su un maxischermo puo' essere letto di
   // sbieco, da lontano e con le luci addosso. La ridondanza serve.

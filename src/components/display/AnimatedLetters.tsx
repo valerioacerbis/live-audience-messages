@@ -23,6 +23,14 @@ import { letterDelayMs } from "@/lib/display/letterStagger";
 const LETTER_ENTER_MS = 1100;
 const LETTER_ENTER_STAGGER_MS = 450;
 
+/**
+ * Tempo totale (nel caso peggiore) perche' l'ultima lettera finisca di
+ * apparire: la stagger massima piu' la durata della sua animazione. Serve a
+ * chi vuole far comparire qualcos'altro solo dopo che la frase e' stata
+ * scritta (es. il nome sotto il messaggio in `BasicRenderer`).
+ */
+export const LETTER_ENTRANCE_TOTAL_MS = LETTER_ENTER_MS + LETTER_ENTER_STAGGER_MS;
+
 // Simmetrica (lenta-veloce-lenta), non in sola decelerazione: senza uno
 // scatto iniziale il passaggio tra una lettera e la successiva si fonde
 // invece di "saltare" da una all'altra.

@@ -12,12 +12,37 @@ Questo file dice solo **cosa resta da fare e in che ordine**.
 
 ## Dove siamo
 
-STEP 1 completo e funzionante in locale con i driver di sviluppo
-(`DB_DRIVER=memory`, `NEXT_PUBLIC_REALTIME_DRIVER=polling`).
+**STEP 1 completo, Supabase collegato e app già in deploy di produzione su
+Vercel.** Non più solo locale: `.env.local` gira con `DB_DRIVER=supabase` e
+`NEXT_PUBLIC_REALTIME_DRIVER=supabase`, il progetto Vercel
+(`live-audience-messages`) ha tutte le env var di produzione impostate, e ci
+sono deploy Production recenti.
+
+**Novità di questa sessione (display + form pubblico), da vedere su schermo
+vero nel Blocco B:**
+
+- `/display`: il messaggio entra lettera per lettera con blur (libreria
+  `motion`, solo qui), con uno zoom continuo e impercettibile per tutta la
+  permanenza a schermo; l'uscita resta un semplice fadeout. Il nome sotto il
+  messaggio non fa il lettering: appare con un fade-in + risalita dal basso,
+  solo a frase già scritta.
+- Rotazione (`src/lib/display/engine.ts`): non è più un giro mescolato, ma
+  pesca sempre tra i messaggi mostrati **meno volte finora** (pareggio
+  casuale, mai lo stesso due volte di fila). Pensata per una canzone lunga
+  con pochi messaggi: nessuno finisce per vedersi ripetuto molto più degli
+  altri.
+- Limite messaggio abbassato da 280 a 120 caratteri; tempo di permanenza a
+  schermo rallentato (base 2500→4500ms, minimo 3000→5000ms, massimo
+  8000→14000ms) per lo stesso motivo — canzone lunga, meno giri di rotazione.
+- Pagina di successo del form pubblico ridisegnata: spunta animata (disegno
+  del tratto, non un'apparizione secca), logo/nome evento/frase nascosti
+  mentre è a schermo, copy "La tua promessa è nello specchio." Resta CSS
+  puro, niente `motion`: qui ogni kilobyte in più conta per la rete satura.
 
 **Verificato davvero:**
 
-- 86 test (`npm test`), typecheck strict, lint, build — tutti puliti
+- 98 test (`npm test`), typecheck strict, lint — tutti puliti dopo le
+  modifiche sopra (build non ri-verificato in questa sessione)
 - Flusso completo via HTTP: invio → moderazione → display, cursore ordinato, zero duplicati
 - Burst di 50 messaggi in 5s: 51 nel feed, 0 doppioni, ordine corretto
 - Dead-man switch end-to-end: operatore presente → coda; operatore sparisce → i
@@ -26,78 +51,69 @@ STEP 1 completo e funzionante in locale con i driver di sviluppo
 - Rate limit (429), payload oversize (413), content-type errato (415), admin senza token (401)
 - Accumulo su `/qr` → apertura di `/display` → l'arretrato parte in ordine
 - Login admin: `/admin?k=…` → 307 → 303 con cookie httpOnly → 200
+- **Supabase contro un'istanza reale**: i tre punti a rischio del vecchio
+  Blocco A sono stati toccati con mano — i commit `cae4a4a` (polling
+  incrementale, cache display stantia, reset messaggi) e `98ececd` (cache da
+  svuotare al panic button) sono fix nati proprio testando dal vivo. Non
+  risultano invece note esplicite sulla forma di ritorno di
+  `insert_message_idempotent` né su `release_abandoned` — se qualcosa in
+  quell'area si comporta in modo strano, sono il primo sospetto.
+- **Deploy su Vercel**: progetto linkato, env var di produzione impostate
+  (incluso `RATE_LIMIT_ENABLED`, oggi `false` sia in locale che in
+  produzione), deploy Production andati a buon fine nelle ultime ore.
 
-**Mai verificato — sono i primi due blocchi qui sotto:**
+**Non confermato esplicitamente — vedi Blocco B:**
 
-- Il driver Supabase contro un'istanza reale (schema e codice scritti, mai eseguiti)
-- La resa visiva di `/display` e `/qr` in un browser vero
+- La checklist di verifica visiva di `/qr` e `/display` non risulta spuntata
+  punto per punto, anche se i commit `18151dd` (tema "Man in the Mirror") e
+  `7095761` (accenti nel copy pubblico) sono il genere di modifica che si fa
+  guardando lo schermo, non leggendo codice.
+- `/api/health` non è stato controllato in produzione in questa sessione (la
+  richiesta diretta ha incontrato la protezione dei deploy di Vercel, non
+  necessariamente un problema dell'app).
+- Nessun `qr.svg` generato con l'URL di produzione reale nella root del
+  progetto.
 
 ---
 
-## Blocco A — Supabase (bloccante, ~1 ora)
+## Blocco A — Supabase — ✅ fatto
 
-Senza questo non si può deployare: su Vercel ogni funzione ha il proprio
-processo e il driver `memory` si rifiuta di partire
-([`src/lib/db/index.ts`](src/lib/db/index.ts)).
+~~Bloccante, ~1 ora~~ — completato. `DB_DRIVER=supabase` e
+`NEXT_PUBLIC_REALTIME_DRIVER=supabase` sono attivi sia in `.env.local` che su
+Vercel Production. I tre punti a rischio elencati nella versione precedente
+di questo file (forma di ritorno di `insert_message_idempotent`, broadcast
+realtime, `release_abandoned`) non hanno lasciato bug aperti noti, ma non
+risultano nemmeno verificati uno per uno con una nota esplicita — se in futuro
+qualcosa si rompe in quell'area, sono il primo posto dove guardare.
 
-1. Creare un progetto su supabase.com — piano gratuito, **regione EU
-   (Frankfurt)**, per stare vicino a `fra1` di Vercel.
-2. SQL Editor → incollare tutto
-   [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
-3. Compilare `.env.local` come descritto nel README (§"Passare a Supabase").
-4. `npm run dev` e ripetere le verifiche del blocco "Dove siamo".
-
-### I tre punti che possono rompersi, in ordine di probabilità
-
-**1. La forma di ritorno di `insert_message_idempotent`.**
-La funzione SQL dichiara `returns table (message public.messages, created boolean)`.
-Il driver in [`supabase.ts`](src/lib/db/supabase.ts) si aspetta
-`[{ message: {...}, created: bool }]`. PostgREST potrebbe appiattire la riga
-composita in modo diverso. **Verificare per prima cosa**, con un `console.log`
-del `data` grezzo. Se la forma non torna, l'alternativa più semplice è cambiare
-la funzione in `returns setof public.messages` più una colonna `was_created`
-piatta, invece di combattere con il tipo composito.
-
-**2. Il broadcast realtime.**
-[`publish.ts`](src/lib/realtime/publish.ts) chiama
-`POST {SUPABASE_URL}/realtime/v1/api/broadcast`. Da verificare: che l'endpoint
-accetti la service role key, e che il canale pubblico non richieda
-autorizzazione lato client. Test: aprire `/display` con
-`NEXT_PUBLIC_REALTIME_DRIVER=supabase`, inviare un messaggio, e controllare che
-il pallino in basso a destra sia **verde** e che il messaggio arrivi in
-~150 ms invece di ~2 s.
-
-Se il broadcast non funziona, **non è un blocco per la serata**: il polling
-copre tutto, con 2 secondi di latenza. Lasciare `polling` e riprovare con calma.
-
-**3. `release_abandoned` e i tipi timestamptz.**
-Verificare che lo sweeper rilasci davvero. Test veloce: `OPERATOR_TIMEOUT_MS=3000
-AUTO_RELEASE_DELAY_MS=2000 npm run dev`, inviare un messaggio pulito senza mai
-aprire `/admin`, e controllare che dopo ~3 s compaia in
-`GET /api/messages`.
-
-> **Attenzione durante i test:** se hai `/admin` aperto in una scheda, il suo
-> polling ti registra come operatore presente e i messaggi restano
-> correttamente in coda. Non è un bug. Per testare "senza operatore" chiudi la
-> scheda, oppure usa un `eventSlug` diverso (`?eventSlug=prova`).
+Riferimento tecnico se serve rifare il collegamento da zero: SQL Editor di
+Supabase → [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql),
+poi `.env.local` come da README (§"Passare a Supabase").
 
 ---
 
 ## Blocco B — Verifica visiva (~30 minuti)
 
-Mai fatta. La logica è coperta dai test, il rendering no.
+Probabilmente in corso (vedi i commit sul tema pubblico), ma la checklist
+puntuale non risulta completata. Da rifare/confermare adesso che il tema
+pubblico è cambiato.
 
 Aprire `/qr` e `/display` su uno schermo grande e controllare:
 
 - [ ] `/qr`: il QR è leggibile da **5-6 metri**, con le luci accese. Se no,
       aumentare la dimensione in [`QrScreen.tsx`](src/components/display/QrScreen.tsx)
       (`min(46vh, 46vw)`)
-- [ ] `/display`: animazione di ingresso e uscita fluide, nessuno scatto
-- [ ] Messaggio da 280 caratteri: entra nello schermo senza tagliarsi
+- [ ] `/display`: ingresso lettera per lettera fluido (nessuno scatto tra una
+      lettera e l'altra), zoom continuo impercettibile, uscita in fadeout
+- [ ] Messaggio da 120 caratteri: entra nello schermo senza tagliarsi
       (`text-[clamp(2.5rem,5.5vw,7rem)]` in [`BasicRenderer.tsx`](src/components/display/renderers/BasicRenderer.tsx))
 - [ ] Messaggio da 3 caratteri: non sembra sperduto
-- [ ] Nome lungo, emoji, testo tutto maiuscolo
-- [ ] Rotazione: con 2-3 messaggi, girano senza ripetere due volte di fila
+- [ ] Nome lungo, emoji, testo tutto maiuscolo — appare dopo la frase, non insieme
+- [ ] Rotazione: con 3+ messaggi, nessuno si ripete finché gli altri non sono
+      stati mostrati almeno una volta
+- [ ] Pagina di successo del form pubblico (invia un messaggio da telefono):
+      spunta animata, nessun logo/intestazione visibile, testo "La tua
+      promessa è nello specchio."
 - [ ] Con **un solo** messaggio: resta fermo, non lampeggia
 - [ ] Fullscreen ("Entra in scena") e wake lock: lo schermo non si spegne in 15 minuti
 - [ ] Il pallino di stato è invisibile da lontano ma leggibile da vicino
@@ -110,38 +126,36 @@ npm run burst -- --count 20 --window 4
 
 ---
 
-## Blocco C — Deploy su Vercel (~30 minuti)
+## Blocco C — Deploy su Vercel — ✅ fatto, restano tre verifiche
 
-1. `npx vercel` e collegare il progetto.
-2. Variabili d'ambiente in *Settings → Environment Variables* (le stesse di
-   `.env.local`, con `IP_HASH_SALT` e `ADMIN_TOKEN` generati con
-   `openssl rand -hex 32`).
-3. Verificare che `/api/health` risponda `ok: true` con
-   `drivers.db = "supabase"`.
-4. Controllo intenzionale: provare un deploy **senza** `DB_DRIVER=supabase` e
-   verificare che l'app fallisca con il messaggio esplicito invece di partire
-   con il driver sbagliato.
-5. Generare il QR definitivo:
-   `npm run qr -- --url https://<dominio> --out qr.svg`
-6. Warm-up: puntare un pinger esterno gratuito su `/api/health` ogni 5 minuti
-   nelle ore dell'evento (su piano Hobby i cron Vercel girano una volta al
-   giorno, quindi `vercel.json` non ne contiene).
+Progetto linkato, env var di produzione impostate, deploy Production
+recenti. Restano da spuntare, probabilmente in pochi minuti:
+
+1. Verificare che `/api/health` risponda `ok: true` con
+   `drivers.db = "supabase"` (non controllato in questa sessione — la
+   richiesta diretta ha incontrato la protezione dei deploy di Vercel).
+2. Controllo intenzionale mai fatto: provare un deploy **senza**
+   `DB_DRIVER=supabase` e verificare che l'app fallisca con il messaggio
+   esplicito invece di partire con il driver sbagliato.
+3. Generare il QR definitivo con il dominio vero:
+   `npm run qr -- --url https://<dominio> --out qr.svg` — non risulta ancora
+   fatto (nessun `qr.svg` nella root).
+
+Warm-up per la serata (su piano Hobby i cron Vercel girano una volta al
+giorno, quindi `vercel.json` non ne contiene): puntare un pinger esterno
+gratuito su `/api/health` ogni 5 minuti nelle ore dell'evento.
 
 ---
 
-## Blocco D — Tre incoerenze note da chiudere
+## Blocco D — Incoerenze note da chiudere
 
 Piccole, ma già scritte nella documentazione come se esistessero.
 
-**D1. Il token dell'evento nel QR non viene validato.**
-[`scripts/generate-qr.ts`](scripts/generate-qr.ts) accetta `--token` e lo mette
-nell'URL come `?t=`, e il RUNBOOK dice "se il link finisce in giro, cambia il
-token e rigenera il QR". Ma **niente controlla `?t=`**: oggi quel parametro è
-decorativo.
-Due strade oneste: implementarlo (un campo `access_token` su `events`,
-controllato in `createMessage`) oppure togliere `--token` dallo script e la
-riga dal RUNBOOK. Decidere prima della serata — la seconda va benissimo se ci
-si affida a Turnstile.
+**D1. ~~Il token dell'evento nel QR non viene validato.~~ — ✅ chiuso il 2026-08-31.**
+`--token` non validava mai nulla lato server (era decorativo): tolto dallo
+script `generate-qr.ts` e dalla riga del RUNBOOK in README. La protezione
+contro lo spam da fuori resta solo Turnstile (spento di default, si accende
+da env in 30 secondi).
 
 **D2. La pagina audience ignora `?e=` (slug evento).**
 `/qr` genera l'URL con `?e=<slug>` quando lo slug non è `default`, ma
@@ -218,6 +232,8 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Turnstile spento di default** | Dipendenza da un CDN esterno nel percorso critico. Su una rete di locale il rischio di indisponibilità è peggiore del rischio bot. Si accende da env in trenta secondi |
 | **Rate limit su Postgres, non Redis** | Tre count su indice a questa scala sono rumore. Un vendor in meno |
 | **Liste profanità collassate a runtime** | I transformer di `obscenity` collassano le doppie e l'italiano ne è pieno: senza `collapseRuns` metà dei pattern non aggancerebbe nulla, **in silenzio**. C'è un test che verifica che ogni voce reagisca |
+| **`motion` solo su `/display`, non sul form pubblico** | Il form gira su rete cellulare satura al buio: ogni kilobyte in più è un invio in meno che va a buon fine. Le sue animazioni restano CSS puro; il maxischermo, caricato una volta sola su un solo dispositivo, si può permettere una libreria JS |
+| **Rotazione "meno mostrato prima"** | Con una canzone lunga e pochi messaggi, un giro mescolato non basta a evitare che qualcuno si veda ripetuto molto più degli altri: si pesca sempre tra i mostrati meno volte, mai lo stesso due volte di fila |
 
 ---
 
@@ -239,7 +255,7 @@ sparsi nel codice. `.env.example` li documenta tutti.
 
 ```bash
 npm run dev         # gira senza account e senza Docker
-npm test            # 86 test, ~200 ms
+npm test            # 98 test, ~200 ms
 npm run typecheck
 npm run lint
 npm run burst -- --count 50 --window 5    # da guardare a schermo

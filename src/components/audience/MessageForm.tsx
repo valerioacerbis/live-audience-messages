@@ -34,7 +34,17 @@ function getSessionId(): string {
 
 type Phase = "writing" | "sending" | "sent" | "error";
 
-export function MessageForm() {
+interface MessageFormProps {
+  /**
+   * Intestazione (logo, nome evento, frase) passata dal Server Component
+   * padre: resta renderizzata li', zero JS in piu' per mostrarla. Qui viene
+   * solo nascosta quando il messaggio e' stato inviato, cosi' l'attenzione
+   * va tutta sulla conferma invece che restare divisa con logo e copy sopra.
+   */
+  children?: React.ReactNode;
+}
+
+export function MessageForm({ children }: MessageFormProps) {
   const [body, setBody] = useState("");
   const [name, setName] = useState("");
   const [phase, setPhase] = useState<Phase>("writing");
@@ -110,15 +120,38 @@ export function MessageForm() {
   }
 
   if (phase === "sent") {
+    // Niente logo/nome evento/frase qui: quando il messaggio e' partito,
+    // l'attenzione deve andare tutta alla conferma, non essere condivisa
+    // con l'intestazione della pagina (che il padre passa come children,
+    // e che quindi semplicemente non viene renderizzata in questo ramo).
     return (
-      <div className="animate-enter flex flex-col items-center gap-6 py-12 text-center">
-        <div className="grid size-20 place-items-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
-          <svg viewBox="0 0 24 24" className="size-9 stroke-emerald-500" fill="none" strokeWidth={2.5}>
-            <path d="M4 12.5 9.5 18 20 7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+      <div className="flex min-h-[70dvh] flex-col items-center justify-center gap-6 text-center">
+        <div className="relative grid size-24 place-items-center">
+          {/* Anello che si espande una volta sola dietro al cerchio: e' il
+              colpo d'occhio che deve far notare il successo a prima vista. */}
+          <span
+            aria-hidden
+            className="animate-success-ring absolute inset-0 rounded-full border-2 border-emerald-500/60"
+          />
+          <div className="animate-success-pop grid size-20 place-items-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
+            <svg viewBox="0 0 24 24" className="size-9 stroke-emerald-500" fill="none" strokeWidth={2.5}>
+              {/* pathLength normalizza la lunghezza del tracciato a 1, cosi'
+                  stroke-dasharray/offset non dipendono dalla geometria reale
+                  del path: la spunta si disegna invece di apparire di colpo. */}
+              <path
+                d="M4 12.5 9.5 18 20 7"
+                pathLength={1}
+                strokeDasharray={1}
+                strokeDashoffset={1}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="animate-draw-check"
+              />
+            </svg>
+          </div>
         </div>
         <div className="space-y-2">
-          <p className="text-2xl font-semibold">La tua promessa è in cammino</p>
+          <p className="text-2xl font-semibold">La tua promessa è nello specchio.</p>
           <p className="text-balance text-ink-dim">
             La vedrai sul maxischermo durante il brano Man in the Mirror.
             Perché il mondo cambia solo quando, per primo, cambi tu.
@@ -136,71 +169,74 @@ export function MessageForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
-      <div className="space-y-2">
-        <textarea
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={4}
-          autoFocus
-          enterKeyHint="done"
-          placeholder="Es. Ascoltare di più, perdonare chi mi ha ferito..."
-          aria-label="La tua promessa"
-          className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-4 text-lg leading-relaxed text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
-        />
-        <div className="flex justify-end">
-          <span
-            className={`text-sm tabular-nums ${tooLong ? "text-red-400" : "text-ink-faint"}`}
-            aria-live="polite"
-          >
-            {used} / {limits.messageMaxLength}
-          </span>
+    <>
+      {children}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        <div className="space-y-2">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={4}
+            autoFocus
+            enterKeyHint="done"
+            placeholder="Es. Ascoltare di più, perdonare chi mi ha ferito..."
+            aria-label="La tua promessa"
+            className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-4 text-lg leading-relaxed text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
+          />
+          <div className="flex justify-end">
+            <span
+              className={`text-sm tabular-nums ${tooLong ? "text-red-400" : "text-ink-faint"}`}
+              aria-live="polite"
+            >
+              {used} / {limits.messageMaxLength}
+            </span>
+          </div>
         </div>
-      </div>
 
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        maxLength={limits.nameMaxLength}
-        placeholder="Il tuo nome (facoltativo)"
-        aria-label="Il tuo nome, facoltativo"
-        className="w-full rounded-2xl border border-line bg-surface-raised px-4 py-3.5 text-base text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
-      />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={limits.nameMaxLength}
+          placeholder="Il tuo nome (facoltativo)"
+          aria-label="Il tuo nome, facoltativo"
+          className="w-full rounded-2xl border border-line bg-surface-raised px-4 py-3.5 text-base text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
+        />
 
-      {/*
-        Honeypot: invisibile a un umano, irresistibile per un bot semplice.
-        Se arriva compilato il server risponde 200 come sempre, senza salvare
-        nulla: al bot non diciamo mai che l'abbiamo riconosciuto.
-      */}
-      <input
-        type="text"
-        name="website"
-        value={honeypot}
-        onChange={(e) => setHoneypot(e.target.value)}
-        tabIndex={-1}
-        autoComplete="off"
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-[9999px] size-0 opacity-0"
-      />
+        {/*
+          Honeypot: invisibile a un umano, irresistibile per un bot semplice.
+          Se arriva compilato il server risponde 200 come sempre, senza salvare
+          nulla: al bot non diciamo mai che l'abbiamo riconosciuto.
+        */}
+        <input
+          type="text"
+          name="website"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="pointer-events-none absolute -left-[9999px] size-0 opacity-0"
+        />
 
-      {error && (
-        <p role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
+        {error && (
+          <p role="alert" className="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="rounded-2xl bg-accent px-6 py-4 text-lg font-semibold text-black transition active:scale-98 disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
+        >
+          {phase === "sending" ? "Invio..." : "Invia"}
+        </button>
+
+        <p className="text-center text-xs text-ink-faint">
+          ✨ Potrà ispirare tutta la sala. Potrebbe essere letta da un
+          moderatore prima di comparire.
         </p>
-      )}
-
-      <button
-        type="submit"
-        disabled={!canSend}
-        className="rounded-2xl bg-accent px-6 py-4 text-lg font-semibold text-black transition active:scale-98 disabled:cursor-not-allowed disabled:bg-line disabled:text-ink-faint"
-      >
-        {phase === "sending" ? "Invio..." : "Invia"}
-      </button>
-
-      <p className="text-center text-xs text-ink-faint">
-        ✨ Potrà ispirare tutta la sala. Potrebbe essere letta da un
-        moderatore prima di comparire.
-      </p>
-    </form>
+      </form>
+    </>
   );
 }

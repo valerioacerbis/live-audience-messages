@@ -35,8 +35,13 @@ export interface DisplayState {
    * mostra UN messaggio, mostra l'insieme accumulato di tutti.
    */
   all: readonly PublicMessage[];
-  /** Puntatore nel giro di rotazione. */
-  rotationIndex: number;
+  /**
+   * Quante volte ogni messaggio e' andato in scena (arrivo nuovo compreso).
+   * La rotazione pesca sempre da qui il meno mostrato: con una canzone
+   * lunga e pochi messaggi, e' cosi' che si evita che qualcuno ne veda
+   * uno sempre piu' spesso degli altri.
+   */
+  showCounts: ReadonlyMap<string, number>;
   /** Serve a non ripetere due volte di fila lo stesso messaggio. */
   lastShownId: string | null;
   /** Timestamp di fine della fase corrente (ms epoch). */
@@ -74,7 +79,7 @@ export function initialDisplayState(): DisplayState {
     isReplay: false,
     queue: [],
     all: [],
-    rotationIndex: 0,
+    showCounts: new Map(),
     lastShownId: null,
     phaseEndsAt: 0,
     seenIds: new Set(),
@@ -95,12 +100,16 @@ function enter(
   now: number,
   extra: Partial<DisplayState>,
 ): DisplayState {
+  const showCounts = new Map(state.showCounts);
+  showCounts.set(message.id, (showCounts.get(message.id) ?? 0) + 1);
+
   return {
     ...state,
     ...extra,
     phase: "entering",
     current: message,
     lastShownId: message.id,
+    showCounts,
     phaseEndsAt: now + publicConfig.display.enterMs,
   };
 }
@@ -126,19 +135,35 @@ function advance(state: DisplayState, now: number): DisplayState {
 
   if (state.all.length === 0) return state;
 
-  let index = state.rotationIndex % state.all.length;
-  // Con piu' di un messaggio disponibile, mai due volte lo stesso di fila.
-  if (state.all.length > 1 && state.all[index]?.id === state.lastShownId) {
-    index = (index + 1) % state.all.length;
-  }
-
-  const replay = state.all[index];
+  const replay = pickReplay(state);
   if (!replay) return state;
 
-  return enter(state, replay, now, {
-    rotationIndex: index + 1,
-    isReplay: true,
-  });
+  return enter(state, replay, now, { isReplay: true });
+}
+
+/**
+ * Sceglie il prossimo messaggio da rimettere in scena: sempre tra quelli
+ * mostrati meno volte finora, con pareggio casuale. Cosi' ogni messaggio
+ * torna a schermo la stessa quantita' di volte degli altri (mai +1 rispetto
+ * al meno mostrato), invece di dipendere da un ordine di giro che con una
+ * canzone lunga farebbe vedere alcuni messaggi molte piu' volte di altri.
+ *
+ * Esclude il messaggio appena uscito quando esiste un'alternativa, cosi' non
+ * si ripete mai due volte di fila anche se e' lui il meno mostrato.
+ */
+function pickReplay(state: DisplayState): PublicMessage | null {
+  if (state.all.length === 0) return null;
+
+  const pool =
+    state.all.length > 1 ? state.all.filter((m) => m.id !== state.lastShownId) : state.all;
+
+  const minCount = pool.reduce(
+    (min, m) => Math.min(min, state.showCounts.get(m.id) ?? 0),
+    Number.POSITIVE_INFINITY,
+  );
+  const candidates = pool.filter((m) => (state.showCounts.get(m.id) ?? 0) === minCount);
+
+  return candidates[Math.floor(Math.random() * candidates.length)] ?? null;
 }
 
 /** Avanzamento della macchina a stati sul battito dell'orologio. */
@@ -289,7 +314,7 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
         isReplay: false,
         queue: [],
         all: [],
-        rotationIndex: 0,
+        showCounts: new Map(),
         lastShownId: null,
         phaseEndsAt: 0,
       };

@@ -48,10 +48,10 @@ export const publicConfig = {
     enterMs: int(process.env.NEXT_PUBLIC_DISPLAY_ENTER_MS, 500),
     exitMs: int(process.env.NEXT_PUBLIC_DISPLAY_EXIT_MS, 400),
     /** hold = base + perChar * caratteri, poi clampato tra min e max. */
-    holdBaseMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_BASE_MS, 2500),
-    holdPerCharMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_PER_CHAR_MS, 45),
-    holdMinMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_MIN_MS, 3000),
-    holdMaxMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_MAX_MS, 8000),
+    holdBaseMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_BASE_MS, 4500),
+    holdPerCharMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_PER_CHAR_MS, 60),
+    holdMinMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_MIN_MS, 5000),
+    holdMaxMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_MAX_MS, 14000),
     /** Oltre questa profondita' di coda si comincia ad accelerare. */
     burstThreshold: int(process.env.NEXT_PUBLIC_DISPLAY_BURST_THRESHOLD, 8),
     /** Coda satura: hold al minimo. */
