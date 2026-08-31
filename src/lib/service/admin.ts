@@ -222,12 +222,22 @@ export async function reopenEvent(eventSlug: string): Promise<void> {
  * Cancella tutti i messaggi dell'evento. Distruttiva e irreversibile: serve
  * a ripulire i messaggi di prova (es. il pomeriggio del concerto, dopo aver
  * verificato che tutto funzioni) senza portarseli dietro a schermo la sera.
+ *
+ * Riapre anche l'evento se era stato chiuso: un reset serve a ripartire da
+ * zero, e "zero messaggi ma display bloccato sulla schermata di chiusura"
+ * non e' uno stato iniziale — resterebbe li' finche' qualcuno non tocca
+ * anche "Riapri la serata" altrove, senza un motivo per doverlo fare in due
+ * passaggi separati.
  */
 export async function purgeMessages(eventSlug: string): Promise<number> {
   const repo = getRepository();
   const event = await resolveEvent(eventSlug);
   const deleted = await repo.deleteAllMessages(event.id);
   await repo.clearDisplay(event.id, new Date().toISOString());
+  if (event.status === "ended") {
+    await repo.reopenEvent(event.id);
+    await publishEvent(event.slug, makeEvent("event.started", {}));
+  }
   await publishEvent(event.slug, makeEvent("display.clear", {}));
   return deleted;
 }

@@ -194,7 +194,7 @@ export function AdminConsole({ token }: { token: string }) {
               <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-300">
                 {syntheticExhausted
                   ? "Poche frasi in rotazione, e le frasi pronte sono finite."
-                  : "Poche frasi in rotazione: valuta di aggiungerne con il pulsante qui sotto."}
+                  : "Poche frasi in rotazione: aggiungi 10 frasi pronte."}
               </p>
             )}
             <button
