@@ -38,6 +38,13 @@ export const serverConfig = {
   },
 
   rateLimit: {
+    /**
+     * Interruttore unico. Acceso di default: e' la protezione anti-spam per
+     * la serata vera, non deve essere possibile dimenticarsela spenta per
+     * errore. Le singole finestre/soglie sotto restano configurabili come
+     * prima, ma non contano nulla se questo e' `false`.
+     */
+    enabled: bool(process.env.RATE_LIMIT_ENABLED, true),
     session: {
       windowMs: int(process.env.RL_SESSION_WINDOW_MS, 30_000),
       max: int(process.env.RL_SESSION_MAX, 1),

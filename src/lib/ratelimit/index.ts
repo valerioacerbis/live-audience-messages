@@ -28,7 +28,9 @@ export async function checkRateLimit(
   args: { eventId: string; ipHash: string; sessionId: string },
   now = Date.now(),
 ): Promise<RateLimitVerdict> {
-  const { session, ip, global } = serverConfig.rateLimit;
+  const { enabled, session, ip, global } = serverConfig.rateLimit;
+  if (!enabled) return ALLOWED;
+
   const iso = (windowMs: number) => new Date(now - windowMs).toISOString();
 
   // In parallelo: tre round trip in sequenza sarebbero latenza regalata sul
