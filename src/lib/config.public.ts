@@ -44,6 +44,16 @@ export const publicConfig = {
     staleAfterMs: int(process.env.NEXT_PUBLIC_REALTIME_STALE_MS, 5000),
     /** I segnali ravvicinati vengono raggruppati in una sola fetch. */
     signalDebounceMs: int(process.env.NEXT_PUBLIC_SIGNAL_DEBOUNCE_MS, 150),
+    /**
+     * Tetto di attesa per una richiesta del feed.
+     *
+     * Senza, una `fetch` appesa su un wifi che sta morendo tiene occupato il
+     * lock di sincronizzazione a tempo indefinito: lo schermo continua a far
+     * ruotare quello che ha gia', ma i messaggi nuovi smettono di arrivare e
+     * nessun timer riesce a rimediare. Con il tetto il tentativo fallisce,
+     * entra nel conteggio dei fallimenti e riparte col backoff.
+     */
+    fetchTimeoutMs: int(process.env.NEXT_PUBLIC_FETCH_TIMEOUT_MS, 8000),
   },
 
   display: {
@@ -86,6 +96,17 @@ export const publicConfig = {
 
   /** Tempo minimo tra apertura form e invio: sotto questa soglia e' un bot. */
   minSubmitMs: int(process.env.NEXT_PUBLIC_MIN_SUBMIT_MS, 1500),
+
+  /**
+   * Tetto di attesa per l'invio dal telefono.
+   *
+   * Su una cella satura da centinaia di persone una richiesta puo' restare
+   * appesa per un minuto: chi ha scritto vede solo il pulsante che gira e non
+   * ha modo di riprovare. Meglio dichiararla persa e mostrare l'errore — il
+   * rinvio e' idempotente (`clientMsgId` non cambia), quindi se il messaggio
+   * era arrivato lo stesso non compare due volte a schermo.
+   */
+  submitTimeoutMs: int(process.env.NEXT_PUBLIC_SUBMIT_TIMEOUT_MS, 12_000),
 } as const;
 
 export type PublicConfig = typeof publicConfig;

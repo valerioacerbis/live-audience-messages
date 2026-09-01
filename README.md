@@ -249,7 +249,7 @@ npm run qr -- --url https://tuo-dominio.vercel.app --out qr.svg
 | Difesa | Dove |
 | --- | --- |
 | Idempotenza (`clientMsgId` unico) | Impedisce il doppione a schermo quando la risposta si perde e l'utente ritocca INVIA |
-| Rate limit sessione / IP / globale | Postgres, tre count su indice. **Controllato dopo l'idempotenza**: un rinvio non è un messaggio nuovo |
+| Rate limit sessione / IP / globale | Postgres, tre count su indice. **Controllato dopo l'idempotenza**: un rinvio non è un messaggio nuovo. Le soglie sono tarate su ~350 spettatori — vedi sotto |
 | Honeypot + tempo minimo di compilazione | Scarto silenzioso: risposta identica a un successo |
 | Payload ≤ 2 KB, solo `application/json` | Rifiutato prima del parsing |
 | Rimozione bidi / zero-width / zalgo | Un carattere RLO fa leggere a schermo l'opposto di quello che l'operatore ha approvato |
@@ -258,6 +258,31 @@ npm run qr -- --url https://tuo-dominio.vercel.app --out qr.svg
 | CSP stretta, nessun dominio esterno | Font self-hosted, QR generato in locale |
 | Nessun CORS | Un endpoint pubblico non deve essere aperto a chiunque |
 | `react/no-danger` come errore di lint | L'escaping di React è l'ultima linea di difesa |
+
+### Perché il limite per IP è alto, e non è un errore
+
+Con una platea da centinaia di persone il limite per indirizzo IP smette di
+essere quello che sembra. Dietro il NAT del locale, e dietro il CGNAT degli
+operatori mobili, decine di spettatori diversi arrivano dallo **stesso** IP —
+e Vercel non pubblica record IPv6, quindi anche i telefoni che navigano in
+IPv6 escono dal NAT64 dell'operatore e restano raggruppati.
+
+Un tetto basso quindi non ferma chi spamma: spegne gruppi interi di spettatori
+che non hanno ancora scritto niente, e lo fa mostrando loro *"Hai già inviato
+diversi messaggi"*. È il modo peggiore di fallire, perché sembra funzionare.
+
+Le tre soglie fanno tre mestieri diversi, e solo la prima riguarda le persone:
+
+| Ambito | Valore | A cosa serve davvero |
+| --- | --- | --- |
+| sessione | 1 / 30s | Equità tra spettatori. È l'unico limite pensato per le persone |
+| IP | 500 / 10min | Tetto contro un flood da sorgente unica. Sta sopra qualunque grappolo reale (l'intera platea che scrive una volta sono 350) |
+| globale | 1000 / 60s | Circuit breaker per il database. Il traffico legittimo massimo con 350 persone è ~700/min |
+
+`0` disattiva un ambito — **non** lo porta a zero messaggi consentiti. È la
+leva da tirare la sera stessa se comparissero 429 di ambito `ip`, e la
+semantica è quella perché il valore che qualcuno scriverebbe in `.env` per
+dire "questo limite non lo voglio" non deve poter spegnere la serata.
 
 ### Perché Turnstile è spento di default
 
@@ -334,6 +359,7 @@ software: è la rete del locale o il portatile che si addormenta.
 | Lo schermo non mostra niente e la coda è piena | Nessuno sta moderando in modalità *manuale*: passa ad *assistita* |
 | Lo schermo è fermo, il pallino è rosso | Controlla la rete del display. La coda già scaricata continua comunque |
 | Arrivano troppi messaggi | Alza `RL_SESSION_WINDOW_MS`, oppure lascia fare alla compressione automatica dei tempi |
+| "Hai già inviato diversi messaggi" a chi non ha scritto niente | Sono più spettatori dietro lo stesso IP dell'operatore. Su Vercel metti `RL_IP_MAX=0` e redeploy: l'ambito si spegne, sessione e circuit breaker restano |
 | Spam da fuori | Accendi Turnstile |
 
 ---
@@ -388,7 +414,7 @@ posto che sa cosa sia Supabase. I componenti non fanno mai I/O diretto.
 ```bash
 npm run dev         # sviluppo
 npm run build       # build di produzione
-npm test            # 119 test
+npm test            # 122 test
 npm run typecheck   # TypeScript strict
 npm run lint
 npm run burst       # prova di carico da guardare a schermo

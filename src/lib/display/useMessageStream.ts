@@ -84,7 +84,15 @@ export function useMessageStream(
           const params = new URLSearchParams({ eventSlug, limit: "100" });
           if (cursor) params.set("since", cursor);
 
-          const response = await fetch(`/api/messages?${params}`, { cache: "no-store" });
+          // Il timeout non e' un dettaglio di cortesia: senza, una richiesta
+          // appesa terrebbe `inFlight` alzato per sempre e il display
+          // smetterebbe di aggiornarsi senza che nessun timer possa
+          // rimediare. Con l'abort il fallimento e' contato e il backoff
+          // riparte.
+          const response = await fetch(`/api/messages?${params}`, {
+            cache: "no-store",
+            signal: AbortSignal.timeout(realtime.fetchTimeoutMs),
+          });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
           const data = (await response.json()) as { messages?: PublicMessage[]; ended?: boolean };

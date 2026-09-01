@@ -222,6 +222,19 @@ di più di un E2E automatico, per un progetto che gira una sera.
 - Far scrivere di proposito qualcosa di offensivo e verificare che non passi
 - Chiudere `/admin` a metà e verificare che lo schermo non si fermi
 
+Più una prova di carico alla scala vera, contro l'URL di produzione e con le
+variabili della serata già impostate:
+
+```bash
+npm run burst -- --url https://<dominio> --count 350 --window 60
+```
+
+Va guardato lo schermo, non solo l'output. E vanno contati i 429: con le
+soglie attuali non ne devono comparire di ambito `ip` né `global`. Lo script
+parte da un solo IP, quindi è anche la verifica diretta che il tetto per IP
+non scatti — se dovesse comparire "Hai già inviato diversi messaggi", la leva
+è `RL_IP_MAX=0`.
+
 Da qui escono i bug veri. Lasciare tempo per sistemarli.
 
 ---
@@ -271,6 +284,9 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Cursore su `released_at`, non `created_at`** | Un messaggio approvato dieci minuti dopo l'invio verrebbe altrimenti saltato per sempre |
 | **Turnstile spento di default** | Dipendenza da un CDN esterno nel percorso critico. Su una rete di locale il rischio di indisponibilità è peggiore del rischio bot. Si accende da env in trenta secondi |
 | **Rate limit su Postgres, non Redis** | Tre count su indice a questa scala sono rumore. Un vendor in meno |
+| **Soglie del rate limit tarate su 350 persone** | Il limite per IP non è un limite per persona: dietro il NAT del locale e il CGNAT degli operatori decine di spettatori condividono un IP (Vercel non pubblica record IPv6, quindi anche i telefoni in IPv6 escono dal NAT64). A 5/10min bastavano sei persone dello stesso operatore per spegnere tutti gli altri. Ora 500 — tetto anti-flood, mai raggiungibile da persone vere — e `0` disattiva l'ambito. Il globale sale a 1000/min perché il traffico legittimo massimo con 350 persone è ~700/min |
+| **`max: 0` significa "ambito spento"** | È la lettura che chiunque darebbe alla variabile in `.env`. Con la semantica ingenua (`count >= 0`) significherebbe l'opposto e una svista spegnerebbe la serata al primo messaggio. C'è un test che lo blocca |
+| **Timeout su ogni fetch del percorso critico** | Una richiesta appesa non è un errore: nessun `catch` scatta e nessun backoff riparte. Sul display teneva alzato il lock di sincronizzazione e i messaggi nuovi smettevano di arrivare; sul telefono lasciava il pulsante a girare. Con l'abort il fallimento è dichiarato, contato e riprovabile |
 | **Liste profanità collassate a runtime** | I transformer di `obscenity` collassano le doppie e l'italiano ne è pieno: senza `collapseRuns` metà dei pattern non aggancerebbe nulla, **in silenzio**. C'è un test che verifica che ogni voce reagisca |
 | **`motion` solo su `/display`, non sul form pubblico** | Il form gira su rete cellulare satura al buio: ogni kilobyte in più è un invio in meno che va a buon fine. Le sue animazioni restano CSS puro; il maxischermo, caricato una volta sola su un solo dispositivo, si può permettere una libreria JS |
 | **Rotazione "meno mostrato prima"** | Con una canzone lunga e pochi messaggi, un giro mescolato non basta a evitare che qualcuno si veda ripetuto molto più degli altri: si pesca sempre tra i mostrati meno volte, mai lo stesso due volte di fila |
@@ -296,7 +312,7 @@ sparsi nel codice. `.env.example` li documenta tutti.
 
 ```bash
 npm run dev         # gira senza account e senza Docker
-npm test            # 119 test, ~300 ms
+npm test            # 122 test, ~300 ms
 npm run typecheck
 npm run lint
 npm run burst -- --count 50 --window 5    # da guardare a schermo

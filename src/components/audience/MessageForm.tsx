@@ -16,7 +16,7 @@ import { countGraphemes } from "@/lib/domain/sanitize";
  */
 
 const SESSION_KEY = "lam:session";
-const { limits, event } = publicConfig;
+const { limits, event, submitTimeoutMs } = publicConfig;
 
 function getSessionId(): string {
   try {
@@ -27,7 +27,9 @@ function getSessionId(): string {
     return created;
   } catch {
     // Navigazione privata o storage bloccato: identita' valida per questa
-    // sola visita. Il rate limit per IP copre comunque il caso.
+    // sola visita, quindi il limite per sessione non la segue tra un invio e
+    // l'altro. E' un caso raro e il prezzo di sbagliarlo e' basso: preferiamo
+    // che questa persona scriva due volte piuttosto che non scriva affatto.
     return crypto.randomUUID();
   }
 }
@@ -84,6 +86,11 @@ export function MessageForm({ children }: MessageFormProps) {
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // Su una cella satura la richiesta puo' restare appesa a lungo, e chi
+        // ha scritto resterebbe davanti al pulsante che gira senza poter fare
+        // niente. Meglio dichiararla persa e offrire il rinvio: `clientMsgId`
+        // non cambia, quindi se in realta' era arrivata non nasce un doppione.
+        signal: AbortSignal.timeout(submitTimeoutMs),
         body: JSON.stringify({
           eventSlug: event.slug,
           body,

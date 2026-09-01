@@ -49,14 +49,36 @@ export const serverConfig = {
       windowMs: int(process.env.RL_SESSION_WINDOW_MS, 30_000),
       max: int(process.env.RL_SESSION_MAX, 1),
     },
+    /**
+     * Tetto per indirizzo IP. Tarato su una platea di ~350 persone.
+     *
+     * Non e' un limite "per persona": dietro il NAT del locale, e dietro il
+     * CGNAT degli operatori mobili, decine di spettatori diversi arrivano
+     * dallo stesso IP. Vercel non pubblica record IPv6, quindi anche i
+     * telefoni in IPv6 escono dal NAT64 dell'operatore: l'IP resta condiviso.
+     * Un valore basso non limita chi spamma, spegne interi gruppi di
+     * spettatori che non hanno ancora scritto niente.
+     *
+     * 500 sta ben sopra qualunque grappolo reale (l'intera platea che scrive
+     * una volta sono 350) e resta un tetto contro un flood da sorgente unica.
+     * `0` lo disattiva del tutto: e' la leva da tirare la sera stessa se
+     * comparissero 429 di ambito `ip`.
+     */
     ip: {
       windowMs: int(process.env.RL_IP_WINDOW_MS, 600_000),
-      max: int(process.env.RL_IP_MAX, 5),
+      max: int(process.env.RL_IP_MAX, 500),
     },
-    /** Circuit breaker: protegge il DB da un flood, non il singolo utente. */
+    /**
+     * Circuit breaker: protegge il DB da un flood, non il singolo utente.
+     *
+     * Il tetto legittimo con 350 persone e' ~700/minuto (il limite di
+     * sessione consente 2 messaggi al minuto a testa). 1000 e' il primo
+     * valore che lascia margine sopra il traffico vero: sotto, il breaker
+     * scatterebbe contro il pubblico invece che contro un attacco.
+     */
     global: {
       windowMs: int(process.env.RL_GLOBAL_WINDOW_MS, 60_000),
-      max: int(process.env.RL_GLOBAL_MAX, 300),
+      max: int(process.env.RL_GLOBAL_MAX, 1000),
     },
   },
 
