@@ -288,8 +288,10 @@ async function main(): Promise<void> {
   }
   if (percentile(latencies, 95) > 3000) {
     problems.push(
-      `p95 a ${percentile(latencies, 95)} ms: dal telefono si sente. Verifica che la ` +
-        "regione della funzione e quella del database siano entrambe fra1.",
+      `p95 a ${percentile(latencies, 95)} ms: dal telefono si sente. NON e' un ` +
+        "problema di regione (funzioni e database sono entrambi in Ireland/Dublino, " +
+        "gia' verificato): guarda il tempo interno alla funzione per capire se " +
+        "satura il database o se e' Vercel che accoda. Vedi Blocco F in NEXT_STEPS.md.",
     );
   }
 

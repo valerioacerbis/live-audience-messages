@@ -8,6 +8,12 @@ Questo file dice solo **cosa resta da fare e in che ordine**.
 
 **Data della prima serata: fine ottobre 2026.** È il vincolo che ordina tutto.
 
+> **Filo aperto, ripartire da qui:** [Blocco F — latenza sotto carico](#blocco-f--latenza-sotto-carico--aperto).
+> La tenuta a 350 spettatori è verificata per quanto riguarda i rifiuti (zero) e
+> il rilascio automatico (perfetto), ma il p95 dell'invio è a 10 s e non
+> sappiamo ancora perché. Lì dentro c'è cosa è già stato escluso e qual è la
+> prossima misura da fare — non ricominciare da capo.
+
 ---
 
 ## Dove siamo
@@ -222,20 +228,110 @@ di più di un E2E automatico, per un progetto che gira una sera.
 - Far scrivere di proposito qualcosa di offensivo e verificare che non passi
 - Chiudere `/admin` a metà e verificare che lo schermo non si fermi
 
-Più una prova di carico alla scala vera, contro l'URL di produzione e con le
-variabili della serata già impostate:
-
-```bash
-npm run burst -- --url https://<dominio> --count 350 --window 60
-```
-
-Va guardato lo schermo, non solo l'output. E vanno contati i 429: con le
-soglie attuali non ne devono comparire di ambito `ip` né `global`. Lo script
-parte da un solo IP, quindi è anche la verifica diretta che il tetto per IP
-non scatti — se dovesse comparire "Hai già inviato diversi messaggi", la leva
-è `RL_IP_MAX=0`.
+La prova di carico sintetica è già stata fatta due volte (vedi Blocco F) e si
+rilancia con `npm run sim`. Quella con persone vere resta necessaria lo stesso:
+il simulatore parte da un solo IP e da una sola macchina, quindi non dice
+niente su celle sature, telefoni vecchi e browser strani.
 
 Da qui escono i bug veri. Lasciare tempo per sistemarli.
+
+---
+
+## Blocco F — Latenza sotto carico — APERTO
+
+Sessione del 2026-09-01. Il filo è stato messo in pausa qui, con una domanda
+precisa ancora senza risposta. **Leggi tutto prima di toccare qualcosa**: due
+delle ipotesi ovvie sono già state provate e una ha peggiorato le cose.
+
+### Come si riproduce
+
+```bash
+npm run sim -- --url https://live-audience-messages.vercel.app --spectators 350 --window 120
+```
+
+Simula 350 spettatori con sessione persistente e arrivi pesati verso l'inizio
+([`scripts/live-sim.ts`](scripts/live-sim.ts)). Due avvertenze operative:
+
+- **Chiudere prima tutte le schede `/admin` e `/admin/settings`.** Il loro
+  polling è il segnale di presenza dell'operatore: se resta aperto i messaggi
+  finiscono in coda invece che a schermo e il test non è confrontabile con i
+  precedenti. Il timeout è 60 s dall'ultima chiamata.
+- **Dopo, "Reset messaggi" in `/admin/settings`**: ogni esecuzione lascia
+  ~465 messaggi finti nell'evento vero.
+
+Le soglie vive si leggono da `/api/health?k=$ADMIN_TOKEN` (campo `rateLimit`,
+visibile solo col token). È il modo per sapere cosa gira davvero in produzione
+invece di dedurlo dai default del codice.
+
+### Le due esecuzioni fatte
+
+| | run 1 — `fra1`, 4 round trip | run 2 — `dub1`, 3 round trip |
+| --- | --- | --- |
+| accettati | 482 | 462 |
+| 429 ambito `ip` / `global` | 0 / 0 | 0 / 0 |
+| p50 | 619 ms | **520 ms** |
+| p95 | 6 620 ms | **10 800 ms** |
+| p99 | 8 678 ms | 13 411 ms |
+| max | 10 061 ms | 14 937 ms |
+| timeout lato client (>15 s) | 0 | 3 |
+| picco accettati in 60 s | 248 | 238 |
+
+### Cosa è chiuso e non va riaperto
+
+- **Le soglie del rate limit sono giuste.** Zero rifiuti di ambito `ip` e
+  `global` in entrambe le esecuzioni. Col vecchio `RL_IP_MAX=5` sarebbero
+  stati respinti 477 messaggi su 482; il picco reale (248/min) sfiorava il
+  vecchio tetto globale di 300.
+- **Il dead-man switch regge sotto carico.** 465 messaggi su 465 rilasciati
+  da soli, `pending: 0`, senza nessuno a moderare. Verificato due volte.
+- **Non è un problema di regione.** Supabase è in West EU (Ireland) e le
+  funzioni sono state spostate su `dub1` per stare nella stessa regione AWS.
+  Ha portato la latenza a riposo da 250-445 ms a 180-245 ms e il p50 da 619 a
+  520 ms — ma **non ha toccato il tail**. Non spostare Supabase a Francoforte:
+  guadagnerebbe ~30 ms sul tratto telefono→funzione (il pubblico è in Italia)
+  al prezzo di ricreare il progetto, ed è il rapporto rischio/beneficio
+  sbagliato a poche settimane dalla serata.
+
+### La domanda aperta
+
+**Dove vanno i 10 secondi del p95?** Due ipotesi che portano a rimedi opposti:
+
+1. **Supabase gratuito che satura** sotto ~4 scritture/s (CPU condivisa, ~6
+   query per invio) → la leva è meno query per richiesta, o il piano Pro.
+2. **Vercel che accoda** mentre scala le istanze, ognuna con il suo avvio a
+   freddo → il database è innocente e la leva è tutt'altra.
+
+C'è anche il sospetto che la parallelizzazione introdotta in `0a1a941`
+(idempotenza e rate limit insieme invece che in fila) **contribuisca** al
+peggioramento: manda 4 query simultanee al database invece di al massimo 3, e
+su CPU condivisa la concorrenza può costare più del round trip risparmiato.
+Candidata al ripristino se si conferma l'ipotesi 1 — ma solo con la misura in
+mano, non a naso.
+
+### La prossima cosa da fare, decisa ma non fatta
+
+**Strumentare invece di indovinare.** Aggiungere un header `Server-Timing`
+alla risposta di `POST /api/messages` con il tempo trascorso *dentro* la
+funzione, e farlo registrare al simulatore accanto al tempo osservato dal
+client. Una sola esecuzione discrimina:
+
+- tempo interno alto → è il database (ipotesi 1)
+- tempo interno basso, attesa del client alta → è la piattaforma (ipotesi 2)
+
+Modifica piccola e senza rischio. **Da fare prima di qualunque altra
+ottimizzazione**: la lezione di run 2 è che cambiare a naso può peggiorare.
+
+### Perché conta, e quanto
+
+Il timeout di invio dal telefono è a 12 s (`NEXT_PUBLIC_SUBMIT_TIMEOUT_MS`).
+Con un p95 a 10,8 s e un massimo a 14,9 s, alla serata vera **qualche persona
+vedrebbe un errore** invece della conferma. Non è il sistema che cade — il
+rinvio è idempotente e non produce doppioni — ma è una brutta figura evitabile.
+
+Da valutare a prescindere dalla diagnosi: **Supabase Pro (~25 $/mese) per il
+solo mese di ottobre.** Risorse dedicate invece di CPU condivisa. Per una
+serata sola, davanti a centinaia di persone, senza possibilità di hotfix, è
+probabilmente l'assicurazione col miglior rapporto qualità-prezzo del progetto.
 
 ---
 
