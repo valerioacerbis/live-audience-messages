@@ -198,7 +198,10 @@ Serve per la produzione: su Vercel ogni funzione ha il proprio processo, quindi
 il driver `memory` non può funzionare (e infatti si rifiuta di partire lì).
 
 1. Crea un progetto su [supabase.com](https://supabase.com) — piano gratuito,
-   **regione EU (Frankfurt)** per stare vicino alle funzioni Vercel.
+   **regione EU**. Segnati quale scegli: la regione delle funzioni Vercel in
+   `vercel.json` deve corrispondere, o ogni messaggio inviato dal pubblico
+   paga un viaggio in piu' attraverso l'Europa su ognuno dei suoi round trip
+   verso il database. Il progetto usa West EU (Ireland) e quindi `dub1`.
 2. Apri *SQL Editor* e incolla tutto
    [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql).
 3. In *Project Settings → API* copia URL, `anon key` e `service_role key`.
@@ -228,7 +231,13 @@ npx vercel
 ```
 
 Poi in *Settings → Environment Variables* metti le stesse variabili di
-`.env.local`. `vercel.json` fissa già la regione a `fra1`.
+`.env.local`. `vercel.json` fissa già la regione a `dub1` (Dublino), che è la
+**stessa regione del progetto Supabase** — West EU (Ireland).
+
+Non è un dettaglio di ottimizzazione: l'invio di un messaggio fa tre round trip
+in sequenza verso il database, quindi ogni millisecondo di distanza si moltiplica
+per tre e lo paga chi sta col telefono in mano davanti al pulsante che gira. Se
+un giorno sposti il progetto Supabase, sposta anche questa riga.
 
 **Warm-up (opzionale ma consigliato).** La prima richiesta della serata paga il
 cold start. Non voglio che a pagarlo sia la prima persona che scrive: punta un

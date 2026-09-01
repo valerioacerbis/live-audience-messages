@@ -43,3 +43,6 @@ next-env.d.ts
 
 # stato del driver `memory`
 /.data
+
+# Permessi Claude Code locali a questa macchina
+.claude/settings.local.json

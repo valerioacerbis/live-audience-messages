@@ -79,16 +79,25 @@ export async function createMessage(
    * controlli nell'ordine opposto, chi ritocca INVIA perche' la risposta si
    * e' persa — lo scenario piu' probabile su una rete di locale — riceverebbe
    * "aspetta un attimo" invece della conferma, e ci riproverebbe ancora.
-   * Costa una query indicizzata e rende la garanzia incondizionata.
+   *
+   * Le due domande partono insieme perche' sono indipendenti, ma l'ORDINE DI
+   * DECISIONE resta quello di prima: se il messaggio esiste gia' si esce
+   * senza nemmeno guardare il verdetto del rate limit. In sequenza sarebbe un
+   * round trip in piu' verso il database — ~150 ms regalati sul percorso in
+   * cui il pubblico aspetta col pulsante che gira. Il prezzo e' qualche count
+   * inutile nel solo caso raro del rinvio.
    */
-  const already = await repo.findByClientMsgId(event.id, input.clientMsgId);
+  const [already, limit] = await Promise.all([
+    repo.findByClientMsgId(event.id, input.clientMsgId),
+    checkRateLimit(repo, {
+      eventId: event.id,
+      ipHash: context.ipHash,
+      sessionId: input.sessionId,
+    }),
+  ]);
+
   if (already) return accepted(already.id);
 
-  const limit = await checkRateLimit(repo, {
-    eventId: event.id,
-    ipHash: context.ipHash,
-    sessionId: input.sessionId,
-  });
   if (!limit.allowed && limit.scope) {
     return {
       status: 429,
