@@ -10,9 +10,11 @@ Questo file dice solo **cosa resta da fare e in che ordine**.
 
 > **Filo aperto, ripartire da qui:** [Blocco F — latenza sotto carico](#blocco-f--latenza-sotto-carico--aperto).
 > La tenuta a 350 spettatori è verificata per quanto riguarda i rifiuti (zero) e
-> il rilascio automatico (perfetto), ma il p95 dell'invio è a 10 s e non
-> sappiamo ancora perché. Lì dentro c'è cosa è già stato escluso e qual è la
-> prossima misura da fare — non ricominciare da capo.
+> il rilascio automatico (perfetto). Il p95 dell'invio era arrivato a 10.8s con
+> una modifica che è stata **riportata indietro** (2026-09-01) perché il
+> guadagno sul caso medio non valeva il peggioramento del caso peggiore. Lì
+> dentro c'è cosa è già stato escluso e qual è la prossima misura da fare —
+> non ricominciare da capo.
 
 ---
 
@@ -286,27 +288,30 @@ invece di dedurlo dai default del codice.
   da soli, `pending: 0`, senza nessuno a moderare. Verificato due volte.
 - **Non è un problema di regione.** Supabase è in West EU (Ireland) e le
   funzioni sono state spostate su `dub1` per stare nella stessa regione AWS.
-  Ha portato la latenza a riposo da 250-445 ms a 180-245 ms e il p50 da 619 a
-  520 ms — ma **non ha toccato il tail**. Non spostare Supabase a Francoforte:
-  guadagnerebbe ~30 ms sul tratto telefono→funzione (il pubblico è in Italia)
-  al prezzo di ricreare il progetto, ed è il rapporto rischio/beneficio
-  sbagliato a poche settimane dalla serata.
+  Ha portato la latenza a riposo da 250-445 ms a 180-245 ms — resta così.
+  Non spostare Supabase a Francoforte: guadagnerebbe ~30 ms sul tratto
+  telefono→funzione (il pubblico è in Italia) al prezzo di ricreare il
+  progetto, ed è il rapporto rischio/beneficio sbagliato a poche settimane
+  dalla serata.
+- **La parallelizzazione idempotenza+rate limit è stata riportata indietro
+  (2026-09-01).** Introdotta e testata nella stessa sessione: run 1
+  (sequenziale) p50 619ms/p95 6.6s, run 2 (parallelo) p50 520ms/p95 10.8s. Il
+  p50 migliorava ma il p95 peggiorava, ed è il p95 quello che produce un
+  errore visibile in scena. `src/lib/service/messages.ts` è di nuovo
+  sequenziale: `findByClientMsgId` prima, `checkRateLimit` dopo. **Non
+  riprovare questa strada senza prima aver misurato la causa vera** (vedi
+  sotto) — l'esperimento di run 2 aveva anche cambiato la regione nello stesso
+  deploy, quindi non isolava la variabile.
 
 ### La domanda aperta
 
-**Dove vanno i 10 secondi del p95?** Due ipotesi che portano a rimedi opposti:
+**Dove vanno i secondi del p95 (6.6s anche nella run sequenziale, che è lo
+stato attuale)?** Due ipotesi che portano a rimedi opposti:
 
-1. **Supabase gratuito che satura** sotto ~4 scritture/s (CPU condivisa, ~6
-   query per invio) → la leva è meno query per richiesta, o il piano Pro.
+1. **Supabase gratuito che satura** sotto carico (CPU condivisa, ~5 query per
+   invio) → la leva è meno query per richiesta, o il piano Pro.
 2. **Vercel che accoda** mentre scala le istanze, ognuna con il suo avvio a
    freddo → il database è innocente e la leva è tutt'altra.
-
-C'è anche il sospetto che la parallelizzazione introdotta in `0a1a941`
-(idempotenza e rate limit insieme invece che in fila) **contribuisca** al
-peggioramento: manda 4 query simultanee al database invece di al massimo 3, e
-su CPU condivisa la concorrenza può costare più del round trip risparmiato.
-Candidata al ripristino se si conferma l'ipotesi 1 — ma solo con la misura in
-mano, non a naso.
 
 ### La prossima cosa da fare, decisa ma non fatta
 
@@ -319,7 +324,8 @@ client. Una sola esecuzione discrimina:
 - tempo interno basso, attesa del client alta → è la piattaforma (ipotesi 2)
 
 Modifica piccola e senza rischio. **Da fare prima di qualunque altra
-ottimizzazione**: la lezione di run 2 è che cambiare a naso può peggiorare.
+ottimizzazione**: la lezione della run parallela (poi riportata indietro) è
+che cambiare a naso può peggiorare invece di migliorare.
 
 ### Perché conta, e quanto
 
