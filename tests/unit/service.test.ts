@@ -6,9 +6,8 @@ process.env.MEMORY_DB_FILE = ".data/test-messages.json";
 
 const { getRepository } = await import("@/lib/db");
 const { createMessage, getFeed, resolveEvent } = await import("@/lib/service/messages");
-const { addSyntheticMessages, getAdminSnapshot, setModerationMode } = await import(
-  "@/lib/service/admin"
-);
+const { addSyntheticMessages, getAdminSnapshot, setClosingPhrase, setModerationMode } =
+  await import("@/lib/service/admin");
 const { __resetMemoryRepository } = await import("@/lib/db/memory");
 const { serverConfig } = await import("@/lib/config");
 const { SYNTHETIC_PHRASES } = await import("@/lib/domain/syntheticPhrases");
@@ -36,6 +35,11 @@ function payload(overrides: Record<string, unknown> = {}) {
 }
 
 const ctx = { ipHash: "hash-di-test" };
+
+/** Stringa lunga `n` senza corse di caratteri ripetuti (vedi `CHAR_FLOOD` in sanitize.ts). */
+function variedText(n: number): string {
+  return Array.from({ length: n }, (_, i) => (i % 10).toString()).join("");
+}
 
 beforeEach(async () => {
   __resetMemoryRepository();
@@ -82,7 +86,7 @@ describe("createMessage", () => {
     const result = await createMessage(payload({ body: lungo }), ctx);
 
     expect(result.status).toBe(400);
-    expect(String(result.body.message)).toMatch(/120 caratteri/);
+    expect(String(result.body.message)).toMatch(/80 caratteri/);
   });
 
   it("collassa il flooding di caratteri invece di rifiutarlo", async () => {
@@ -300,5 +304,59 @@ describe("addSyntheticMessages", () => {
 
     const after = await getAdminSnapshot(SLUG);
     expect(after.syntheticAvailable).toBe(SYNTHETIC_PHRASES.length - 10);
+  });
+});
+
+describe("setClosingPhrase", () => {
+  it("senza override, getAdminSnapshot risolve al default applicativo", async () => {
+    await resolveEvent(SLUG);
+    const snapshot = await getAdminSnapshot(SLUG);
+    expect(snapshot.event.closingPhrase).toBe(serverConfig.event.closingPhrase);
+  });
+
+  it("una frase entro il limite viene salvata e risolta ovunque", async () => {
+    await resolveEvent(SLUG);
+    const result = await setClosingPhrase(SLUG, "Grazie e buonanotte");
+    expect(result).toEqual({ ok: true });
+
+    expect((await getAdminSnapshot(SLUG)).event.closingPhrase).toBe("Grazie e buonanotte");
+    expect((await getFeed({ eventSlug: SLUG, since: null, limit: 10 })).closingPhrase).toBe(
+      "Grazie e buonanotte",
+    );
+  });
+
+  it("una frase oltre il limite viene rifiutata e non tocca quella salvata prima", async () => {
+    await resolveEvent(SLUG);
+    await setClosingPhrase(SLUG, "Frase valida");
+
+    // Non un carattere ripetuto: `sanitizeText` collassa 5+ ripetizioni di
+    // fila (protezione anti-flood), il che accorcerebbe la stringa e
+    // vanificherebbe il test.
+    const tooLong = variedText(serverConfig.limits.closingPhraseMaxLength + 1);
+    const result = await setClosingPhrase(SLUG, tooLong);
+    expect(result).toEqual({ ok: false, error: "too_long" });
+
+    // Rifiutata: la frase precedente resta quella a schermo, non quella nuova.
+    expect((await getAdminSnapshot(SLUG)).event.closingPhrase).toBe("Frase valida");
+  });
+
+  it("una frase esattamente al limite viene accettata", async () => {
+    await resolveEvent(SLUG);
+    const atLimit = variedText(serverConfig.limits.closingPhraseMaxLength);
+    const result = await setClosingPhrase(SLUG, atLimit);
+    expect(result).toEqual({ ok: true });
+    expect((await getAdminSnapshot(SLUG)).event.closingPhrase).toBe(atLimit);
+  });
+
+  it("una frase vuota o di soli spazi riporta al default applicativo", async () => {
+    await resolveEvent(SLUG);
+    await setClosingPhrase(SLUG, "Prima la imposto");
+    expect((await getAdminSnapshot(SLUG)).event.closingPhrase).toBe("Prima la imposto");
+
+    const result = await setClosingPhrase(SLUG, "   ");
+    expect(result).toEqual({ ok: true });
+    expect((await getAdminSnapshot(SLUG)).event.closingPhrase).toBe(
+      serverConfig.event.closingPhrase,
+    );
   });
 });

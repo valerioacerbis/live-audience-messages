@@ -26,6 +26,44 @@ Vercel.** Non più solo locale: `.env.local` gira con `DB_DRIVER=supabase` e
 (`live-audience-messages`) ha tutte le env var di produzione impostate, e ci
 sono deploy Production recenti.
 
+**Aggiunta del 2026-09-02 (frase di chiusura configurabile a caldo):**
+
+- La frase della schermata di chiusura non è più fissa a build time.
+  `EventRecord.closingPhrase` (nullable, migration
+  [`0003_closing_phrase.sql`](supabase/migrations/0003_closing_phrase.sql))
+  è editabile da un nuovo campo in `/admin/settings`
+  ([`SettingsConsole.tsx`](src/components/admin/SettingsConsole.tsx)), azione
+  `set-closing-phrase` su `/api/admin/control`. `null` = nessuna
+  sovrascrittura, si usa `NEXT_PUBLIC_CLOSING_PHRASE` (solo più il default
+  iniziale, non più l'unica fonte).
+- Stesso modello "campanella + rilettura" di `ended`: `getFeed` porta
+  `closingPhrase: string` (già risolta al default) nello stesso payload dei
+  messaggi, quindi un cambio in `/admin/settings` raggiunge `/display` entro
+  un ciclo di polling — anche a schermata di chiusura già a schermo.
+- Pulsante fisso in `/admin` rinominato: "Chiudi la serata" → "Vai alla
+  schermata finale", "Riapri la serata" → "Rimetti i messaggi a schermo". Il
+  comportamento non cambia (stesso `status`/`event.ended`), solo il nome:
+  non è detto che chi lo preme stia chiudendo l'ultimo brano della serata.
+- **Bug trovato e chiuso lo stesso giorno**: su Supabase reale la colonna
+  `closing_phrase` non esisteva ancora (migration non applicata), quindi ogni
+  salvataggio falliva con 500 — e `SettingsConsole` lo ingoiava in silenzio,
+  buttando via la frase appena scritta senza dirlo. Corretto: un salvataggio
+  fallito ora mostra un errore e **non** cancella il draft. **La migration va
+  ancora applicata sul progetto Supabase reale** (SQL Editor, vedi Blocco A) —
+  finché non lo è, salvare la frase su quell'ambiente continua a fallire.
+- Limite di lunghezza sulla frase (default 60 grafemi,
+  `NEXT_PUBLIC_CLOSING_PHRASE_MAX_LENGTH`): sta da sola al centro dello
+  schermo, non in coda a un messaggio. Stessa sanitizzazione del corpo del
+  messaggio (`sanitizeText`/`countGraphemes`), contatore "usati / max" in
+  `/admin/settings` che disabilita Salva oltre soglia, verifica anche lato
+  server in `setClosingPhrase` (`src/lib/service/admin.ts`) — 5 nuovi test in
+  `tests/unit/service.test.ts`.
+- Impostazioni riorganizzate: il campo vive ora dentro una sezione
+  "Schermata finale" (coerente col nome del pulsante), non più una sezione a
+  se stante intitolata "Frase di chiusura".
+- Non ancora verificato su schermo vero — voce aggiunta alla checklist del
+  Blocco B qui sotto.
+
 **Novità di questa sessione (schermata di chiusura), da vedere su schermo
 vero nel Blocco B:**
 
@@ -152,7 +190,7 @@ Aprire `/qr` e `/display` su uno schermo grande e controllare:
       (`min(46vh, 46vw)`)
 - [ ] `/display`: ingresso lettera per lettera fluido (nessuno scatto tra una
       lettera e l'altra), zoom continuo impercettibile, uscita in fadeout
-- [ ] Messaggio da 120 caratteri: entra nello schermo senza tagliarsi
+- [ ] Messaggio da 80 caratteri: entra nello schermo senza tagliarsi
       (`text-[clamp(2.5rem,5.5vw,7rem)]` in [`BasicRenderer.tsx`](src/components/display/renderers/BasicRenderer.tsx))
 - [ ] Messaggio da 3 caratteri: non sembra sperduto
 - [ ] Nome lungo, emoji, testo tutto maiuscolo — appare dopo la frase, non insieme
@@ -165,10 +203,12 @@ Aprire `/qr` e `/display` su uno schermo grande e controllare:
 - [ ] Fullscreen ("Entra in scena") e wake lock: lo schermo non si spegne in 15 minuti
 - [ ] Il pallino di stato è invisibile da lontano ma leggibile da vicino
 - [ ] `/admin` su un telefono vero: i bottoni si centrano al buio con una mano
-- [ ] Schermata di chiusura su schermo vero: "Chiudi la serata" da `/admin`
-      (doppio tap), le tre parole leggibili da lontano, frase finale con
-      zoom impercettibile. Poi "Riapri la serata" e verificare che `/display`
-      torni alla rotazione da solo entro pochi secondi, senza reload
+- [ ] Schermata di chiusura su schermo vero: "Vai alla schermata finale" da
+      `/admin` (doppio tap), le tre parole leggibili da lontano, frase finale
+      con zoom impercettibile. Poi "Rimetti i messaggi a schermo" e verificare che
+      `/display` torni alla rotazione da solo entro pochi secondi, senza
+      reload. Provare anche a cambiare la frase da `/admin/settings` e
+      verificare che arrivi a `/display` entro un ciclo di polling
 
 Comando utile per riempire lo schermo:
 ```bash
@@ -395,7 +435,8 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Liste profanità collassate a runtime** | I transformer di `obscenity` collassano le doppie e l'italiano ne è pieno: senza `collapseRuns` metà dei pattern non aggancerebbe nulla, **in silenzio**. C'è un test che verifica che ogni voce reagisca |
 | **`motion` solo su `/display`, non sul form pubblico** | Il form gira su rete cellulare satura al buio: ogni kilobyte in più è un invio in meno che va a buon fine. Le sue animazioni restano CSS puro; il maxischermo, caricato una volta sola su un solo dispositivo, si può permettere una libreria JS |
 | **Rotazione "meno mostrato prima"** | Con una canzone lunga e pochi messaggi, un giro mescolato non basta a evitare che qualcuno si veda ripetuto molto più degli altri: si pesca sempre tra i mostrati meno volte, mai lo stesso due volte di fila |
-| **Chiusura della serata bidirezionale, non un lucchetto** | "Chiudi la serata" riusa `status`/`event.ended` già esistenti nello schema; ma il display rispecchia la verità del server in entrambe le direzioni, cosi' "Riapri la serata" (doppio tap, non tocca i messaggi) fa ripartire la rotazione da sola, senza reload — necessario sia contro un tap per sbaglio la sera vera, sia per provare l'animazione senza smontare l'evento di test |
+| **Chiusura bidirezionale, non un lucchetto** | "Vai alla schermata finale" riusa `status`/`event.ended` già esistenti nello schema; il display rispecchia la verità del server in entrambe le direzioni, cosi' "Rimetti i messaggi a schermo" (doppio tap, non tocca i messaggi) fa ripartire la rotazione da sola, senza reload — necessario sia contro un tap per sbaglio la sera vera, sia per provare l'animazione senza smontare l'evento di test. Rinominato da "Chiudi/Riapri la serata" (2026-09-02): può servire anche a metà concerto, non solo sull'ultimo brano |
+| **Frase di chiusura in DB, non solo in `NEXT_PUBLIC_CLOSING_PHRASE`** (2026-09-02) | `EventRecord.closingPhrase` (nullable, `null` = usa il default applicativo), editabile da `/admin/settings`, viaggia nello stesso payload `getFeed` di `ended` — stesso modello "campanella + rilettura", nessun nuovo canale |
 
 ---
 

@@ -38,6 +38,8 @@ export interface EventRecord {
   name: string;
   status: "draft" | "live" | "ended";
   moderationMode: ModerationMode;
+  /** Frase della schermata di chiusura. `null` = usa il default applicativo. */
+  closingPhrase: string | null;
   /** Ultimo heartbeat da /admin: e' il segnale del dead-man switch. */
   operatorLastSeenAt: string | null;
   /** Panic button: nulla rilasciato prima di questo istante torna a schermo. */

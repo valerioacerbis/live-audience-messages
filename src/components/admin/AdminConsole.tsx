@@ -307,7 +307,7 @@ export function AdminConsole() {
                   : "border-emerald-500/40 text-emerald-400 active:bg-emerald-500/15"
               }`}
             >
-              {armedEventToggle ? "Tocca di nuovo per confermare" : "Riapri la serata"}
+              {armedEventToggle ? "Tocca di nuovo per confermare" : "Rimetti i messaggi a schermo"}
             </button>
           ) : (
             <button
@@ -327,7 +327,7 @@ export function AdminConsole() {
                   : "border-accent/40 text-accent active:bg-accent/15"
               }`}
             >
-              {armedEventToggle ? "Tocca di nuovo per confermare" : "Chiudi la serata"}
+              {armedEventToggle ? "Tocca di nuovo per confermare" : "Vai alla schermata finale"}
             </button>
           )}
         </div>

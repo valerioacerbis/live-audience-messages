@@ -46,6 +46,8 @@ export interface Repository {
   getEvent(slug: string): Promise<EventRecord | null>;
   ensureEvent(slug: string, name: string, mode: ModerationMode): Promise<EventRecord>;
   setModerationMode(eventId: string, mode: ModerationMode): Promise<void>;
+  /** `null` riporta la frase di chiusura al default applicativo. */
+  setClosingPhrase(eventId: string, phrase: string | null): Promise<void>;
   /** Panic button: da questo istante in poi nulla di precedente torna a schermo. */
   clearDisplay(eventId: string, at: string): Promise<void>;
   /** Chiusura della serata: mostra la schermata finale al posto della rotazione. */

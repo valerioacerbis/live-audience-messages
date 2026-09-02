@@ -29,7 +29,7 @@ export function DisplayStage({ rendererName }: { rendererName?: string }) {
   // tra rotazione e standby. Torna alla rotazione da sola se il moderatore
   // riapre la serata (vedi `state.ended` in engine.ts).
   if (state.ended) {
-    return <ClosingAnimation phrase={publicConfig.event.closingPhrase} />;
+    return <ClosingAnimation phrase={state.closingPhrase} />;
   }
 
   return (

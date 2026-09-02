@@ -47,6 +47,7 @@ interface EventRow {
   name: string;
   status: EventRecord["status"];
   moderation_mode: ModerationMode;
+  closing_phrase: string | null;
   operator_last_seen_at: string | null;
   cleared_at: string | null;
   created_at: string;
@@ -78,6 +79,7 @@ const toEvent = (r: EventRow): EventRecord => ({
   name: r.name,
   status: r.status,
   moderationMode: r.moderation_mode,
+  closingPhrase: r.closing_phrase,
   operatorLastSeenAt: r.operator_last_seen_at,
   clearedAt: r.cleared_at,
   createdAt: r.created_at,
@@ -137,6 +139,14 @@ export function createSupabaseRepository(): Repository {
         .update({ moderation_mode: mode })
         .eq("id", eventId);
       if (error) fail("setModerationMode", error);
+    },
+
+    async setClosingPhrase(eventId, phrase) {
+      const { error } = await getClient()
+        .from("events")
+        .update({ closing_phrase: phrase })
+        .eq("id", eventId);
+      if (error) fail("setClosingPhrase", error);
     },
 
     async clearDisplay(eventId, at) {

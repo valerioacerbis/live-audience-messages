@@ -28,8 +28,14 @@ export const publicConfig = {
 
   limits: {
     /** Lunghezza massima del messaggio, in *grafemi* (un'emoji = 1). */
-    messageMaxLength: int(process.env.NEXT_PUBLIC_MESSAGE_MAX_LENGTH, 120),
+    messageMaxLength: int(process.env.NEXT_PUBLIC_MESSAGE_MAX_LENGTH, 80),
     nameMaxLength: int(process.env.NEXT_PUBLIC_NAME_MAX_LENGTH, 24),
+    /**
+     * La frase di chiusura sta da sola al centro dello schermo, non in coda
+     * a un messaggio: deve restare leggibile da lontano su una riga o due,
+     * non un paragrafo. In grafemi, come gli altri limiti di testo.
+     */
+    closingPhraseMaxLength: int(process.env.NEXT_PUBLIC_CLOSING_PHRASE_MAX_LENGTH, 60),
   },
 
   realtime: {

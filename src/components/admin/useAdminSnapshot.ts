@@ -16,7 +16,13 @@ import type { ModerationMessage, ModerationMode } from "@/lib/domain/types";
  */
 
 export interface AdminSnapshot {
-  event: { slug: string; name: string; moderationMode: ModerationMode; status: string };
+  event: {
+    slug: string;
+    name: string;
+    moderationMode: ModerationMode;
+    status: string;
+    closingPhrase: string;
+  };
   pending: ModerationMessage[];
   stats: { total: number; approved: number; pending: number; rejected: number; rotating: number };
   syntheticAvailable: number;

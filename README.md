@@ -169,13 +169,31 @@ il panic button, che svuota anche la rotazione.
 ### La chiusura della serata
 
 Un pulsante fisso in `/admin` — non in `/admin/settings`, deve restare
-raggiungibile senza uscire dalla coda di moderazione — interrompe la
-rotazione e mostra `ClosingAnimation`
+raggiungibile senza uscire dalla coda di moderazione — "Vai alla schermata
+finale" (doppio tap) interrompe la rotazione e mostra `ClosingAnimation`
 ([`src/components/display/ClosingAnimation.tsx`](src/components/display/ClosingAnimation.tsx)):
-le tre parole della frase configurata (`NEXT_PUBLIC_CLOSING_PHRASE`) compaiono
-una alla volta con un ingresso a scatto, poi resta scritta la frase intera con
-lo stesso ingresso lettera-per-lettera dei messaggi del pubblico e uno zoom
-continuo lentissimo.
+le tre parole della frase compaiono una alla volta con un ingresso a scatto,
+poi resta scritta la frase intera con lo stesso ingresso lettera-per-lettera
+dei messaggi del pubblico e uno zoom continuo lentissimo. Il nome non
+promette "fine serata": lo stesso pulsante può servire anche a metà concerto,
+su un pezzo che chiude solo un set.
+
+La frase è in `EventRecord.closingPhrase` (colonna nullable, migration
+[`0003_closing_phrase.sql`](supabase/migrations/0003_closing_phrase.sql)),
+editabile a caldo dalla sezione "Schermata finale" di `/admin/settings` senza
+redeploy. `NEXT_PUBLIC_CLOSING_PHRASE` resta solo il default applicativo,
+usato quando l'admin non ne ha ancora impostata una (`null` in DB). Viaggia
+nello stesso payload di `getFeed` di `ended` (`closingPhrase: string`, già
+risolta al default lato server), quindi un cambio fatto in `/admin/settings`
+raggiunge `/display` entro un ciclo di polling, sia a schermo di chiusura già
+mostrato sia prima.
+
+Limite di `NEXT_PUBLIC_CLOSING_PHRASE_MAX_LENGTH` grafemi (default 60): sta da
+sola al centro dello schermo, non in coda a un messaggio, e deve restare
+leggibile da lontano su una riga o due. Stessa sanitizzazione del corpo del
+messaggio del pubblico (`sanitizeText`/`countGraphemes`), verificata sia
+lato client (contatore che disabilita "Salva") sia lato server
+(`setClosingPhrase` in `src/lib/service/admin.ts`).
 
 Riusa esattamente il modello "campanella + rilettura": `status` dell'evento
 (`live`/`ended`, già in `EventRecord`) è la fonte di verità, `event.ended` ed
@@ -184,11 +202,11 @@ e `getFeed` porta la verità (`ended: boolean`) nello stesso payload dei
 messaggi — nessun nuovo canale, nessuno stato solo-realtime.
 
 **Bidirezionale, non un lucchetto a senso unico**: se il moderatore riapre la
-serata (stesso pulsante, ora "Riapri la serata" — doppio tap, non tocca i
-messaggi) il display torna alla rotazione da solo entro un ciclo di polling,
-senza bisogno di un ricaricamento manuale. Serve sia per un tap dato per
-sbaglio la sera vera, sia per provare l'animazione in anteprima senza dover
-smontare l'evento di test.
+rotazione (stesso pulsante, ora "Rimetti i messaggi a schermo" — doppio tap, non
+tocca i messaggi) il display torna alla rotazione da solo entro un ciclo di
+polling, senza bisogno di un ricaricamento manuale. Serve sia per un tap dato
+per sbaglio la sera vera, sia per provare l'animazione in anteprima senza
+dover smontare l'evento di test.
 
 ---
 
@@ -342,10 +360,12 @@ software: è la rete del locale o il portatile che si addormenta.
       pubblico se ne accorga
 - [ ] Modalità di moderazione decisa e impostata su `/admin/settings`
 - [ ] Pulsante rosso "Svuota lo schermo" (in `/admin/settings`) mostrato a chi modera
-- [ ] Frase di chiusura (`NEXT_PUBLIC_CLOSING_PHRASE`) letta e confermata
-- [ ] Animazione di chiusura provata almeno una volta: "Chiudi la serata" in
-      `/admin` (doppio tap), verificata su `/display`, poi "Riapri la serata"
-      (doppio tap) per tornare alla rotazione prima del concerto vero
+- [ ] Frase di chiusura impostata su `/admin/settings` (o default
+      `NEXT_PUBLIC_CLOSING_PHRASE` confermato) e letta ad alta voce
+- [ ] Animazione di chiusura provata almeno una volta: "Vai alla schermata
+      finale" in `/admin` (doppio tap), verificata su `/display`, poi "Rimetti
+      i messaggi a schermo" (doppio tap) per tornare alla rotazione prima del
+      concerto vero
 
 ### Durante
 

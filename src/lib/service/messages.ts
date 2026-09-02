@@ -142,6 +142,8 @@ export interface FeedResult {
   cursor: string | null;
   /** Serata chiusa dal moderatore: torna a `false` se la riapre. */
   ended: boolean;
+  /** Frase della schermata di chiusura, gia' risolta al default se non impostata. */
+  closingPhrase: string;
 }
 
 /**
@@ -187,6 +189,7 @@ export async function getFeed(args: {
     serverTime: now.toISOString(),
     cursor: messages.at(-1)?.releasedAt ?? args.since,
     ended: event.status === "ended",
+    closingPhrase: event.closingPhrase ?? serverConfig.event.closingPhrase,
   };
 }
 

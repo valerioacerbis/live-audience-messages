@@ -69,6 +69,8 @@ export interface DisplayState {
    * di ricaricare la pagina.
    */
   ended: boolean;
+  /** Frase della schermata di chiusura, aggiornata a ogni sync col server. */
+  closingPhrase: string;
   stats: {
     received: number;
     /** Messaggi unici andati a schermo. Le ripetizioni non contano. */
@@ -83,7 +85,8 @@ export type DisplayAction =
   | { type: "tick"; now: number }
   | { type: "remove"; id: string; now: number }
   | { type: "clear"; now: number }
-  | { type: "ended"; value: boolean };
+  | { type: "ended"; value: boolean }
+  | { type: "closingPhrase"; value: string };
 
 export function initialDisplayState(): DisplayState {
   return {
@@ -99,6 +102,7 @@ export function initialDisplayState(): DisplayState {
     cursor: null,
     hydrated: false,
     ended: false,
+    closingPhrase: publicConfig.event.closingPhrase,
     stats: { received: 0, displayed: 0, dropped: 0 },
   };
 }
@@ -339,6 +343,11 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
       // ogni poll), ma se il moderatore riapre la serata questo e' il modo
       // in cui il display lo scopre da solo.
       return state.ended === action.value ? state : { ...state, ended: action.value };
+
+    case "closingPhrase":
+      return state.closingPhrase === action.value
+        ? state
+        : { ...state, closingPhrase: action.value };
 
     default: {
       const exhaustive: never = action;

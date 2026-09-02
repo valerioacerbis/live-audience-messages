@@ -75,6 +75,7 @@ export function createMemoryRepository(): Repository {
         name,
         status: "live",
         moderationMode: mode,
+        closingPhrase: null,
         operatorLastSeenAt: null,
         clearedAt: null,
         createdAt: new Date().toISOString(),
@@ -90,6 +91,15 @@ export function createMemoryRepository(): Repository {
       const event = db.events.find((e) => e.id === eventId);
       if (event) {
         event.moderationMode = mode;
+        await persist();
+      }
+    },
+
+    async setClosingPhrase(eventId, phrase) {
+      const db = await load();
+      const event = db.events.find((e) => e.id === eventId);
+      if (event) {
+        event.closingPhrase = phrase;
         await persist();
       }
     },

@@ -7,6 +7,7 @@ import { getRepository } from "../db";
 import type { ModerationAction } from "../db/types";
 import { makeEvent } from "../domain/events";
 import { decideIntake, isOperatorPresent, releaseTimestamp } from "../domain/policy";
+import { countGraphemes, sanitizeText } from "../domain/sanitize";
 import { countAvailablePhrases, pickSyntheticPhrases } from "../domain/syntheticPhrases";
 import {
   toModerationMessage,
@@ -22,6 +23,8 @@ export interface AdminSnapshot {
     name: string;
     moderationMode: ModerationMode;
     status: string;
+    /** Effettiva: gia' risolta al default applicativo se l'admin non l'ha impostata. */
+    closingPhrase: string;
   };
   pending: ModerationMessage[];
   stats: {
@@ -70,6 +73,7 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
       name: event.name,
       moderationMode: event.moderationMode,
       status: event.status,
+      closingPhrase: event.closingPhrase ?? serverConfig.event.closingPhrase,
     },
     pending: pending.map(toModerationMessage),
     stats: { ...stats, rotating },
@@ -179,6 +183,35 @@ export async function setModerationMode(
   const repo = getRepository();
   const event = await resolveEvent(eventSlug);
   await repo.setModerationMode(event.id, mode);
+}
+
+export type SetClosingPhraseResult =
+  | { ok: true }
+  | { ok: false; error: "too_long" };
+
+/**
+ * Imposta la frase della schermata di chiusura. Una frase vuota (o solo
+ * spazi) riporta il default applicativo, invece di salvare una frase vuota
+ * che lascerebbe lo schermo di chiusura senza niente da mostrare.
+ *
+ * Stessa sanitizzazione del messaggio del pubblico: anche questa frase finisce
+ * da sola, enorme, su uno schermo di 6 metri. Il limite e' in grafemi, non
+ * caratteri UTF-16, per lo stesso motivo del corpo del messaggio: contarli
+ * diversamente sul client e sul server produrrebbe un rifiuto che qui non
+ * potrebbe nemmeno succedere, visto che il client blocca il Salva prima.
+ */
+export async function setClosingPhrase(
+  eventSlug: string,
+  phrase: string,
+): Promise<SetClosingPhraseResult> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+  const trimmed = sanitizeText(phrase);
+  if (countGraphemes(trimmed) > serverConfig.limits.closingPhraseMaxLength) {
+    return { ok: false, error: "too_long" };
+  }
+  await repo.setClosingPhrase(event.id, trimmed.length > 0 ? trimmed : null);
+  return { ok: true };
 }
 
 /** Panic button: svuota lo schermo adesso e impedisce il ritorno dello storico. */

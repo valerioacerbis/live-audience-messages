@@ -10,6 +10,7 @@ import {
   closeEvent,
   purgeMessages,
   reopenEvent,
+  setClosingPhrase,
   setModerationMode,
 } from "@/lib/service/admin";
 
@@ -18,6 +19,13 @@ const schema = z.discriminatedUnion("action", [
     action: z.literal("set-mode"),
     eventSlug: z.string().default(publicConfig.event.slug),
     mode: z.enum(["manual", "assisted", "auto"]),
+  }),
+  z.object({
+    action: z.literal("set-closing-phrase"),
+    eventSlug: z.string().default(publicConfig.event.slug),
+    // Solo un tetto di sicurezza contro un payload assurdo: il vero limite
+    // (in grafemi, configurabile) e' applicato da `setClosingPhrase`.
+    phrase: z.string().max(1000),
   }),
   z.object({
     action: z.literal("clear"),
@@ -55,6 +63,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       case "set-mode":
         await setModerationMode(parsed.data.eventSlug, parsed.data.mode);
         return jsonOk({ ok: true });
+      case "set-closing-phrase": {
+        const result = await setClosingPhrase(parsed.data.eventSlug, parsed.data.phrase);
+        if (!result.ok) {
+          return jsonError(
+            400,
+            `La frase supera ${serverConfig.limits.closingPhraseMaxLength} caratteri.`,
+          );
+        }
+        return jsonOk({ ok: true });
+      }
       case "clear":
         await clearDisplay(parsed.data.eventSlug);
         return jsonOk({ ok: true });

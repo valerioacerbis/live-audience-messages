@@ -12,7 +12,7 @@ import type { RendererProps } from "./types";
 // la propria animazione ben prima) — continua a ritmo costante finche' non
 // e' pronta a uscire la frase corrente. Ad ogni nuovo messaggio riparte
 // sempre dalla stessa posizione iniziale grazie al remount via key.
-const ZOOM_SCALE = 1.1;
+const ZOOM_SCALE = 1.15;
 
 // Il nome non fa il lettering della frase: e' un semplice fade-in con
 // risalita dal basso, e compare solo a frase gia' scritta (da qui il

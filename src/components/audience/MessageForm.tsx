@@ -186,7 +186,7 @@ export function MessageForm({ children }: MessageFormProps) {
             rows={4}
             autoFocus
             enterKeyHint="done"
-            placeholder="Es. Ascoltare di più, perdonare chi mi ha ferito..."
+            placeholder="Es. Da stasera scelgo di essere presente per chi amo davvero."
             aria-label="La tua promessa"
             className="w-full resize-none rounded-2xl border border-line bg-surface-raised px-4 py-4 text-lg leading-relaxed text-ink outline-none transition placeholder:text-ink-faint focus:border-accent/60"
           />

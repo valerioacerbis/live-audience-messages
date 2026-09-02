@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { publicConfig } from "@/lib/config.public";
+import { countGraphemes } from "@/lib/domain/sanitize";
 import type { ModerationMode } from "@/lib/domain/types";
 import { useAdminSnapshot } from "./useAdminSnapshot";
 
@@ -16,15 +18,15 @@ import { useAdminSnapshot } from "./useAdminSnapshot";
 const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
   manual: {
     title: "Manuale",
-    hint: "Niente va a schermo senza la tua approvazione. Se chiudi la console, lo schermo si ferma.",
+    hint: "Approvi sempre tu, messaggio per messaggio. Se chiudi questa pagina (o perdi la connessione), la coda si ferma e aspetta il tuo ritorno.",
   },
   assisted: {
     title: "Assistita",
-    hint: "Mentre sei sulla console approvi tu. Se ti allontani, i messaggi puliti escono da soli e i dubbi restano fermi.",
+    hint: "Finché questa pagina resta aperta approvi tu. Se la chiudi (o perdi la connessione), i puliti passano da soli e i dubbi restano in coda.",
   },
   auto: {
     title: "Automatica",
-    hint: "Decide il filtro. I messaggi dubbi restano comunque in coda ad aspettarti.",
+    hint: "Decide sempre il filtro, che tu ci sia o no. I messaggi dubbi restano comunque in coda ad aspettarti.",
   },
 };
 
@@ -33,6 +35,16 @@ export function SettingsConsole() {
   /** Panic e reset chiedono due tap: un tocco per sbaglio non e' recuperabile. */
   const [armedPanic, setArmedPanic] = useState(false);
   const [armedPurge, setArmedPurge] = useState(false);
+  /**
+   * `null` finche' non si tocca il campo: l'input mostra il valore che arriva
+   * dal poll. Appena si scrive, il poll successivo non deve piu' sovrascrivere
+   * quello che si sta digitando, quindi si passa a mostrare solo il draft
+   * locale finche' non si salva (o non si ricarica la pagina).
+   */
+  const [phraseDraft, setPhraseDraft] = useState<string | null>(null);
+  const [savingPhrase, setSavingPhrase] = useState(false);
+  const [phraseSaved, setPhraseSaved] = useState(false);
+  const [phraseError, setPhraseError] = useState<string | null>(null);
 
   async function control(body: Record<string, unknown>) {
     try {
@@ -53,6 +65,45 @@ export function SettingsConsole() {
   }
 
   const mode = snapshot.event.moderationMode;
+  const phraseValue = phraseDraft ?? snapshot.event.closingPhrase;
+  const phraseMaxLength = publicConfig.limits.closingPhraseMaxLength;
+  const phraseLength = countGraphemes(phraseValue);
+  const phraseTooLong = phraseLength > phraseMaxLength;
+  let phraseButtonLabel = "Salva";
+  if (savingPhrase) phraseButtonLabel = "Salvo...";
+  else if (phraseSaved) phraseButtonLabel = "Salvato";
+
+  /**
+   * Non riusa `control()`: quello ignora ogni errore in silenzio (va bene per
+   * mode/panic/purge, dove non c'e' niente da perdere), ma qui un fallimento
+   * silenzioso lascerebbe intendere che la frase sia stata salvata mentre non
+   * lo e' — e butterebbe via quello che si e' appena scritto.
+   */
+  async function savePhrase() {
+    setSavingPhrase(true);
+    setPhraseSaved(false);
+    setPhraseError(null);
+    try {
+      await call("/api/admin/control", {
+        method: "POST",
+        body: JSON.stringify({ action: "set-closing-phrase", phrase: phraseValue }),
+      });
+      // Atteso (non fire-and-forget): se il draft si azzera prima che lo
+      // snapshot sia aggiornato, il campo mostra per un istante la frase
+      // vecchia prima che arrivi quella nuova. Aspettando, il passaggio
+      // draft -> snapshot avviene con il valore gia' aggiornato.
+      await refresh();
+      setPhraseDraft(null);
+      setPhraseSaved(true);
+      window.setTimeout(() => setPhraseSaved(false), 2000);
+    } catch {
+      // Il draft resta: un salvataggio fallito non deve far perdere quello
+      // che si e' appena scritto.
+      setPhraseError("Salvataggio non riuscito. Riprova.");
+    } finally {
+      setSavingPhrase(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -91,6 +142,51 @@ export function SettingsConsole() {
       </section>
 
       <section className="space-y-2">
+        <h2 className="px-1 text-sm font-medium text-ink-dim">Schermata finale</h2>
+        <div className="space-y-1.5">
+          <div className="flex items-baseline justify-between px-1">
+            <label htmlFor="closing-phrase" className="text-xs text-ink-faint">
+              Frase di chiusura
+            </label>
+            <span className={`text-xs tabular-nums ${phraseTooLong ? "text-red-400" : "text-ink-faint"}`}>
+              {phraseLength} / {phraseMaxLength}
+            </span>
+          </div>
+          <textarea
+            id="closing-phrase"
+            value={phraseValue}
+            onChange={(e) => setPhraseDraft(e.target.value)}
+            rows={2}
+            disabled={savingPhrase}
+            aria-busy={savingPhrase}
+            className="w-full rounded-xl border border-line bg-surface-raised px-3 py-2.5 text-sm text-ink placeholder:text-ink-faint transition-opacity disabled:opacity-50"
+            placeholder="Frase mostrata a schermo quando premi «Vai alla schermata finale»"
+          />
+        </div>
+        {phraseError && (
+          <p role="status" className="px-1 text-xs text-red-400">
+            {phraseError}
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-3 px-1">
+          <p className="text-xs leading-relaxed text-ink-faint">
+            Appare a schermo quando in Moderazione premi «Vai alla schermata finale».
+          </p>
+          <button
+            type="button"
+            onClick={() => void savePhrase()}
+            disabled={savingPhrase || phraseDraft === null || phraseTooLong}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-black transition disabled:opacity-50"
+          >
+            {savingPhrase && (
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+            )}
+            {phraseButtonLabel}
+          </button>
+        </div>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="px-1 text-sm font-medium text-ink-dim">Emergenza</h2>
         <button
           type="button"
@@ -113,9 +209,9 @@ export function SettingsConsole() {
         </button>
       </section>
 
-      {/* Reset dei messaggi: volutamente defilato, non un bottone come quello
-          sopra. Serve poche volte (es. il pomeriggio del concerto, dopo aver
-          testato che tutto funzioni) ed e' irreversibile. */}
+      {/* Eliminazione dei messaggi: volutamente defilato, non un bottone come
+          quello sopra. Serve poche volte (es. il pomeriggio del concerto,
+          dopo aver testato che tutto funzioni) ed e' irreversibile. */}
       <div className="px-1 text-right">
         <button
           type="button"
@@ -134,7 +230,9 @@ export function SettingsConsole() {
               : "text-ink-faint/60 active:text-ink-faint"
           }`}
         >
-          {armedPurge ? "Tocca di nuovo: cancella tutto per sempre" : "Reset messaggi (test)"}
+          {armedPurge
+            ? "Tocca di nuovo: elimina per sempre tutti i messaggi salvati"
+            : "Elimina tutti i messaggi"}
         </button>
       </div>
     </div>

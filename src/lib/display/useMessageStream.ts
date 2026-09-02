@@ -30,6 +30,8 @@ export interface MessageStreamHandlers {
   onClear(): void;
   /** La GET autorevole dice se la serata e' chiusa: vale in entrambe le direzioni. */
   onEndedChange(ended: boolean): void;
+  /** Frase della schermata di chiusura corrente lato server. */
+  onClosingPhraseChange(phrase: string): void;
   getCursor(): string | null;
 }
 
@@ -95,13 +97,23 @@ export function useMessageStream(
           });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-          const data = (await response.json()) as { messages?: PublicMessage[]; ended?: boolean };
+          const data = (await response.json()) as {
+            messages?: PublicMessage[];
+            ended?: boolean;
+            closingPhrase?: string;
+          };
           if (data.messages?.length) handlersRef.current.onMessages(data.messages);
           // Verita' della GET, non dell'evento realtime: arriva anche se la
           // campanella non e' mai suonata, allo stesso identico polling che
           // gia' gira per i messaggi. Chiamato sempre, non solo quando true:
           // e' cosi' che una serata riaperta torna alla rotazione da sola.
           handlersRef.current.onEndedChange(Boolean(data.ended));
+          // Stessa logica: arriva a ogni sync, cosi' un cambio fatto da
+          // /admin/settings si vede anche se il moderatore lo tocca mentre lo
+          // schermo di chiusura e' gia' a schermo.
+          handlersRef.current.onClosingPhraseChange(
+            data.closingPhrase || publicConfig.event.closingPhrase,
+          );
 
           setState((prev) => ({ ...prev, lastSyncAt: Date.now(), failures: 0 }));
         } catch (error) {

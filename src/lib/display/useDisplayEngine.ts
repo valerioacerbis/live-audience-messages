@@ -87,6 +87,10 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
     dispatch({ type: "ended", value });
   }, []);
 
+  const onClosingPhraseChange = useCallback((value: string) => {
+    dispatch({ type: "closingPhrase", value });
+  }, []);
+
   const getCursor = useCallback(() => stateRef.current.cursor, []);
 
   const connection = useMessageStream(eventSlug, {
@@ -94,6 +98,7 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
     onRemove,
     onClear,
     onEndedChange,
+    onClosingPhraseChange,
     getCursor,
   });
 
