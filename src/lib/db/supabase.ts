@@ -331,8 +331,8 @@ export function createSupabaseRepository(): Repository {
       return count ?? 0;
     },
 
-    async releaseAbandoned({ eventId, mode, operatorPresent }) {
-      if (operatorPresent || mode === "manual") return [];
+    async releaseAbandoned({ eventId, mode }) {
+      if (mode === "manual") return [];
 
       const { data, error } = await getClient().rpc("release_abandoned", {
         p_event_id: eventId,

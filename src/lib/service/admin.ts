@@ -82,6 +82,37 @@ export async function getAdminSnapshot(eventSlug: string): Promise<AdminSnapshot
   };
 }
 
+export interface ReviewSnapshot {
+  approved: ModerationMessage[];
+  rejected: ModerationMessage[];
+}
+
+/**
+ * Messaggi gia' decisi (approvati e bloccati), per la pagina di revisione:
+ * serve a correggere un errore gia' fatto, non a moderarne uno nuovo.
+ *
+ * Registra anch'essa l'heartbeat: chi sta correggendo un errore da qui e'
+ * un operatore presente esattamente come chi lavora dalla coda principale.
+ */
+export async function getReviewSnapshot(eventSlug: string): Promise<ReviewSnapshot> {
+  const repo = getRepository();
+  const event = await resolveEvent(eventSlug);
+  await repo.touchOperator(event.id, new Date().toISOString());
+
+  const limit = serverConfig.moderation.reviewListLimit;
+  const [approved, rejected] = await Promise.all([
+    repo.listByStatus(event.id, "approved", limit),
+    repo.listByStatus(event.id, "rejected", limit),
+  ]);
+
+  // Piu' recenti prima: chi apre questa pagina vuole vedere cosa e' appena
+  // successo, non l'inizio della serata.
+  return {
+    approved: approved.map(toModerationMessage).reverse(),
+    rejected: rejected.map(toModerationMessage).reverse(),
+  };
+}
+
 /**
  * Aggiunge un lotto di frasi pre-scritte (`syntheticPhrases.ts`) quando il
  * moderatore ritiene che la rotazione sul display sia troppo scarna.

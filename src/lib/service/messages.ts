@@ -162,17 +162,15 @@ export async function getFeed(args: {
   const event = await resolveEvent(args.eventSlug);
   const now = new Date();
 
-  const operatorPresent = isOperatorPresent(event.operatorLastSeenAt, now.getTime());
   const released = await repo.releaseAbandoned({
     eventId: event.id,
     mode: event.moderationMode,
-    operatorPresent,
     now: now.getTime(),
   });
 
   if (released.length > 0) {
     console.info(
-      `[moderazione] operatore assente: liberati ${released.length} messaggi puliti`,
+      `[moderazione] timeout raggiunto: liberati ${released.length} messaggi puliti`,
     );
   }
 

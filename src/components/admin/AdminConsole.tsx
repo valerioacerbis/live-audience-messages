@@ -184,9 +184,14 @@ export function AdminConsole() {
             <span className="text-ink-faint">
               Modalità: <span className="font-medium text-ink-dim">{MODE_TITLES[snapshot.event.moderationMode]}</span>
             </span>
-            <Link href="/admin/settings" className="text-ink-faint underline underline-offset-2">
-              Impostazioni
-            </Link>
+            <span className="flex gap-3">
+              <Link href="/admin/review" className="text-ink-faint underline underline-offset-2">
+                Revisione
+              </Link>
+              <Link href="/admin/settings" className="text-ink-faint underline underline-offset-2">
+                Impostazioni
+              </Link>
+            </span>
           </div>
 
           <div className="space-y-2">

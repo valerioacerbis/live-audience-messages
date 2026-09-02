@@ -100,9 +100,17 @@ Il filtro produce tre esiti, non due:
 
 | Esito | Con operatore | Senza operatore |
 | --- | --- | --- |
-| `clean` | va in coda, un tap per approvarlo | **rilasciato da solo** dopo `AUTO_RELEASE_DELAY_MS` |
+| `clean` | va in coda, un tap per approvarlo — ma se nessuno lo fa entro `AUTO_RELEASE_DELAY_MS` **si libera comunque da solo** | **rilasciato da solo** dopo `AUTO_RELEASE_DELAY_MS` |
 | `suspect` (volgarità, link, numeri) | va in coda | **resta fermo per sempre**, non va mai a schermo |
 | `blocked` (slur, minacce) | rifiutato, non entra in coda | rifiutato |
+
+Il rilascio automatico dei `clean` non dipende dall'heartbeat di `/admin`:
+guarda solo da quanto tempo il messaggio aspetta. Una scheda `/admin` lasciata
+aperta ma non guardata da nessuno continuerebbe a mandare heartbeat, e con una
+regola legata alla sola presenza dell'operatore il messaggio resterebbe in
+coda per sempre — il buco che il dead-man switch doveva evitare. Il timeout
+per messaggio lo elimina: "presente" nel senso del filtro conta solo
+nell'istante in cui il messaggio arriva.
 
 Tre modalità, commutabili a caldo dalla console:
 

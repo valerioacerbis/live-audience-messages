@@ -76,8 +76,13 @@ export function decideIntake(ctx: IntakeContext): IntakeDecision {
 }
 
 /**
- * Sweeper: libera i messaggi rimasti `pending` quando l'operatore, presente
- * al momento dell'invio, e' poi sparito.
+ * Sweeper: libera i messaggi puliti rimasti `pending` troppo a lungo.
+ *
+ * Non guarda la presenza dell'operatore: dipendeva dall'heartbeat di
+ * `/admin`, ma una scheda lasciata aperta senza che nessuno la guardi
+ * continua a mandare heartbeat e bloccherebbe il rilascio per sempre — esattamente
+ * il buco che il dead-man switch doveva evitare. L'unico segnale affidabile
+ * e' quanto un messaggio e' rimasto in coda senza una decisione umana.
  *
  * Viene invocato dalla GET del display, che gira comunque ogni pochi secondi:
  * zero cron, zero infrastruttura in piu'.
@@ -85,11 +90,9 @@ export function decideIntake(ctx: IntakeContext): IntakeDecision {
 export function shouldAutoRelease(
   message: MessageRecord,
   mode: ModerationMode,
-  operatorPresent: boolean,
   now = Date.now(),
 ): boolean {
   if (message.status !== "pending") return false;
-  if (operatorPresent) return false;
   if (mode === "manual") return false;
   if (message.filterVerdict !== "clean") return false;
 

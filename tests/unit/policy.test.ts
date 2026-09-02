@@ -99,35 +99,34 @@ describe("decideIntake", () => {
   });
 });
 
-describe("shouldAutoRelease (dead-man switch)", () => {
+describe("shouldAutoRelease", () => {
   const old = new Date(NOW - serverConfig.moderation.autoReleaseDelayMs - 1000).toISOString();
 
-  it("libera i pending puliti quando l'operatore e' sparito a meta' concerto", () => {
-    expect(shouldAutoRelease(message({ createdAt: old }), "assisted", false, NOW)).toBe(true);
-  });
-
-  it("non libera niente finche' l'operatore e' li'", () => {
-    expect(shouldAutoRelease(message({ createdAt: old }), "assisted", true, NOW)).toBe(false);
+  it("libera i pending puliti rimasti troppo a lungo senza una decisione umana", () => {
+    // Non esiste piu' un parametro di presenza operatore: e' proprio il punto.
+    // Una scheda /admin dimenticata aperta continuerebbe a mandare heartbeat e,
+    // con la vecchia logica, avrebbe tenuto il messaggio in coda per sempre.
+    expect(shouldAutoRelease(message({ createdAt: old }), "assisted", NOW)).toBe(true);
   });
 
   it("non libera mai i sospetti: nessun umano li ha valutati", () => {
     expect(
-      shouldAutoRelease(message({ createdAt: old, filterVerdict: "suspect" }), "assisted", false, NOW),
+      shouldAutoRelease(message({ createdAt: old, filterVerdict: "suspect" }), "assisted", NOW),
     ).toBe(false);
   });
 
   it("non libera nulla in modalita' manual: e' esattamente cio' che promette", () => {
-    expect(shouldAutoRelease(message({ createdAt: old }), "manual", false, NOW)).toBe(false);
+    expect(shouldAutoRelease(message({ createdAt: old }), "manual", NOW)).toBe(false);
   });
 
   it("aspetta il ritardo prima di liberare", () => {
     const fresh = new Date(NOW - 1000).toISOString();
-    expect(shouldAutoRelease(message({ createdAt: fresh }), "assisted", false, NOW)).toBe(false);
+    expect(shouldAutoRelease(message({ createdAt: fresh }), "assisted", NOW)).toBe(false);
   });
 
   it("ignora i messaggi gia' decisi", () => {
     expect(
-      shouldAutoRelease(message({ createdAt: old, status: "approved" }), "assisted", false, NOW),
+      shouldAutoRelease(message({ createdAt: old, status: "approved" }), "assisted", NOW),
     ).toBe(false);
   });
 });

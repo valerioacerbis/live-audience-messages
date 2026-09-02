@@ -85,12 +85,16 @@ export const serverConfig = {
   moderation: {
     /** Nessun heartbeat da /admin per questo tempo => modalita' non presidiata. */
     operatorTimeoutMs: int(process.env.OPERATOR_TIMEOUT_MS, 60_000),
-    /** In modalita' non presidiata, i messaggi `clean` escono dopo questo ritardo. */
-    autoReleaseDelayMs: int(process.env.AUTO_RELEASE_DELAY_MS, 20_000),
+    /** In assistita, un messaggio `clean` rimasto in coda esce da solo dopo questo ritardo,
+     *  indipendentemente dalla presenza dell'operatore (una scheda aperta ma non guardata
+     *  non deve bloccare il rilascio). */
+    autoReleaseDelayMs: int(process.env.AUTO_RELEASE_DELAY_MS, 60_000),
     /** Finestra per fermare un messaggio gia' approvato prima che vada a schermo. */
     displayDelayMs: int(process.env.DISPLAY_DELAY_MS, 8000),
     /** Quante frasi pre-scritte aggiunge un click sul pulsante "frasi pronte". */
     syntheticBatchSize: int(process.env.SYNTHETIC_BATCH_SIZE, 10),
+    /** Quanti messaggi approvati/bloccati mostra al massimo la pagina di revisione. */
+    reviewListLimit: int(process.env.REVIEW_LIST_LIMIT, 200),
   },
 
   turnstileServer: {

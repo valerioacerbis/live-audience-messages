@@ -422,7 +422,7 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Campanella + rilettura** | L'evento realtime non contiene il messaggio, dice solo "c'è qualcosa di nuovo". Rende il polling di riserva lo stesso code path, chiude i buchi dopo una disconnessione e rende inerte un evento falsificato |
 | **`/qr` e `/display` sono due rotte** | Non uno stato condiviso. Il QR non può ricomparire perché le due cose non condividono una pagina |
 | **Rotazione quando la coda è vuota** | Lo schermo non torna mai nero. I nuovi hanno la precedenza. Un messaggio ritirato esce **anche** dallo storico, o tornerebbe a schermo dalla rotazione |
-| **Dead-man switch** | Il polling di `/admin` **è** il segnale di presenza dell'operatore. Nessun endpoint dedicato, e non ci si può dichiarare presenti senza esserlo |
+| **Dead-man switch** | Il polling di `/admin` **è** il segnale di presenza dell'operatore. Nessun endpoint dedicato, e non ci si può dichiarare presenti senza esserlo. Guida solo la decisione al momento dell'arrivo (`decideIntake`); il rilascio dei `clean` già in coda (`shouldAutoRelease`) dipende solo dall'età del messaggio — una scheda `/admin` dimenticata aperta non deve bloccarlo per sempre (2026-09-02) |
 | **Tre livelli di filtro** | `clean` / `suspect` / `blocked`. La volgarità leggera in italiano a un concerto rock è entusiasmo: va vista da un umano, non rifiutata |
 | **Idempotenza prima del rate limit** | Un rinvio non è un messaggio nuovo. Con l'ordine opposto chi ritocca INVIA su rete instabile riceve 429 e riprova ancora |
 | **`status` a 3 valori + `displayed_at`** | "Mostrato" è ortogonale ad "approvato" |

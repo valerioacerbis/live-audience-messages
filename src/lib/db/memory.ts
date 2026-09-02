@@ -265,20 +265,21 @@ export function createMemoryRepository(): Repository {
       }).length;
     },
 
-    async releaseAbandoned({ eventId, mode, operatorPresent, now }) {
+    async releaseAbandoned({ eventId, mode, now }) {
       const db = await load();
       const released: MessageRecord[] = [];
       const at = new Date(now).toISOString();
 
       for (const message of db.messages) {
         if (message.eventId !== eventId) continue;
-        if (!shouldAutoRelease(message, mode, operatorPresent, now)) continue;
+        if (!shouldAutoRelease(message, mode, now)) continue;
 
         message.status = "approved";
         message.moderatedAt = at;
         message.moderatedBy = "auto";
         // Rilascio immediato: il ritardo di sicurezza serve a dare tempo a un
-        // umano, e qui abbiamo appena stabilito che non c'e' nessuno.
+        // umano, e il messaggio ha gia' aspettato AUTO_RELEASE_DELAY_MS senza
+        // che nessuno decidesse.
         message.releasedAt = at;
         released.push(clone(message));
       }

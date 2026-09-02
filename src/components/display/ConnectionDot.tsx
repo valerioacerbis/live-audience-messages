@@ -12,8 +12,10 @@ import type { ConnectionStatus } from "@/lib/realtime/transport";
  * allo schermo.
  *
  * Il numero e' "nuovi/totale": quanti messaggi sono appena arrivati e non
- * ancora andati in scena, su quanti ne sono arrivati in tutto dall'inizio
- * della serata.
+ * ancora andati in scena, su quanti sono validi in tutto dall'inizio della
+ * serata. Un messaggio ritirato dopo l'approvazione (bloccato per errore da
+ * `/admin/review`) esce da entrambi i numeri, cosi' coincidono sempre con
+ * quello che un ricaricamento della pagina ricalcolerebbe da zero.
  */
 
 const APPEARANCE: Record<ConnectionStatus, { color: string; label: string }> = {
@@ -31,7 +33,7 @@ export function ConnectionDot({
   status: ConnectionStatus;
   /** Messaggi nuovi, non ancora andati in scena. */
   queueDepth: number;
-  /** Messaggi arrivati in totale dall'inizio della serata. */
+  /** Messaggi ricevuti e ancora validi (un ritiro dopo l'approvazione li toglie da qui). */
   totalReceived: number;
 }) {
   const { color, label } = APPEARANCE[status];

@@ -163,6 +163,37 @@ describe("interventi dell'operatore", () => {
     expect(state.queue.map((m) => m.id)).toEqual(["b"]);
   });
 
+  it("decrementa i ricevuti quando ritira un messaggio: deve coincidere con un ricaricamento", () => {
+    let state = ingest(initialDisplayState(), [msg("a"), msg("b", 10)], T0);
+    expect(state.stats.received).toBe(2);
+
+    state = displayReducer(state, { type: "remove", id: "a", now: T0 });
+    expect(state.stats.received).toBe(1);
+  });
+
+  it("non decrementa due volte se il ritiro arriva due volte (es. doppio evento realtime)", () => {
+    let state = ingest(initialDisplayState(), [msg("a"), msg("b", 10)], T0);
+    state = displayReducer(state, { type: "remove", id: "a", now: T0 });
+    state = displayReducer(state, { type: "remove", id: "a", now: T0 + 500 });
+    expect(state.stats.received).toBe(1);
+  });
+
+  it("un messaggio ritirato e poi riapprovato torna a contare e a girare in rotazione", () => {
+    // Scenario di /admin/review: rimuovo per errore, poi lo rimando a
+    // schermo. Il suo id era gia' in `seenIds` dal primo giro: senza pulirlo
+    // in "remove", il dedup dell'ingest lo scarterebbe come "gia' visto" e
+    // non ricomparirebbe mai piu', ne' contribuirebbe di nuovo a "received".
+    let state = ingest(initialDisplayState(), [msg("a"), msg("b", 10)], T0);
+    state = displayReducer(state, { type: "remove", id: "a", now: T0 });
+    expect([...state.queue, ...state.all].map((m) => m.id)).not.toContain("a");
+    expect(state.stats.received).toBe(1);
+
+    // Riapprovato: arriva di nuovo dal server con un releasedAt piu' recente.
+    state = ingest(state, [msg("a", 5000)], T0 + 5000);
+    expect(state.stats.received).toBe(2);
+    expect([...state.queue, ...state.all].map((m) => m.id)).toContain("a");
+  });
+
   it("il panic button svuota lo schermo senza far rientrare lo storico", () => {
     let state = ingest(initialDisplayState(), [msg("a"), msg("b", 10)], T0);
     const cursor = state.cursor;
@@ -171,6 +202,10 @@ describe("interventi dell'operatore", () => {
     expect(state.current).toBeNull();
     expect(state.queue).toHaveLength(0);
     expect(state.phase).toBe("idle");
+
+    // "Reset messaggi" da /admin/settings manda lo stesso evento: i contatori
+    // devono tornare a zero, non restare quelli di prima del reset.
+    expect(state.stats).toEqual({ received: 0, displayed: 0, dropped: 0 });
 
     // Il cursore e la memoria dei visti sopravvivono: al poll successivo non
     // deve rientrare tutto quello che era gia' passato.

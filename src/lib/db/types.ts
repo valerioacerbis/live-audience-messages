@@ -99,11 +99,10 @@ export interface Repository {
 
   countRecent(query: RateLimitQuery): Promise<number>;
 
-  /** Sweeper del dead-man switch: rilascia i pending rimasti senza operatore. */
+  /** Sweeper: rilascia i pending puliti rimasti senza una decisione umana. */
   releaseAbandoned(args: {
     eventId: string;
     mode: ModerationMode;
-    operatorPresent: boolean;
     now: number;
   }): Promise<MessageRecord[]>;
 

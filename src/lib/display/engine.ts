@@ -308,7 +308,24 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
         return state;
       }
 
-      const cleaned = { ...state, queue, all };
+      // Anche il contatore "ricevuti" deve tornare indietro: altrimenti resta
+      // piu' alto di quello che un ricaricamento della pagina ricalcolerebbe
+      // da zero, e i due numeri smettono di coincidere.
+      //
+      // E va tolto anche da `seenIds`: se poi torna a schermo (approvato di
+      // nuovo dopo un ritiro per errore), il suo id non deve piu' risultare
+      // "gia' visto", o il dedup dell'ingest lo scarterebbe in silenzio per
+      // sempre, come se non fosse mai stato riapprovato.
+      const seenIds = new Set(state.seenIds);
+      seenIds.delete(action.id);
+
+      const cleaned = {
+        ...state,
+        queue,
+        all,
+        seenIds,
+        stats: { ...state.stats, received: Math.max(0, state.stats.received - 1) },
+      };
 
       if (state.current?.id === action.id) {
         return {
@@ -321,10 +338,15 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
     }
 
     case "clear":
-      // Panic button. Svuota anche lo storico: se restasse, la rotazione
-      // rimetterebbe a schermo esattamente cio' che si voleva togliere.
-      // Il cursore e la memoria dei visti sopravvivono, cosi' il primo poll
-      // successivo non fa rientrare tutta la serata.
+      // Panic button (o "Reset messaggi" da /admin/settings, stesso evento).
+      // Svuota anche lo storico: se restasse, la rotazione rimetterebbe a
+      // schermo esattamente cio' che si voleva togliere. Il cursore e la
+      // memoria dei visti sopravvivono, cosi' il primo poll successivo non fa
+      // rientrare tutta la serata.
+      //
+      // I contatori invece si azzerano: rappresentano quanto c'e' di valido
+      // ORA (coerente col fix dello stesso numero su "remove"), e dopo un
+      // clear non c'e' piu' niente, per definizione.
       return {
         ...state,
         phase: "idle",
@@ -335,6 +357,7 @@ export function displayReducer(state: DisplayState, action: DisplayAction): Disp
         showCounts: new Map(),
         lastShownId: null,
         phaseEndsAt: 0,
+        stats: { received: 0, displayed: 0, dropped: 0 },
       };
 
     case "ended":

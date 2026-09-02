@@ -22,7 +22,7 @@ const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
   },
   assisted: {
     title: "Assistita",
-    hint: "Finché questa pagina resta aperta approvi tu. Se la chiudi (o perdi la connessione), i puliti passano da soli e i dubbi restano in coda.",
+    hint: "I messaggi puliti aspettano un attimo un tuo tap: se non arriva, passano da soli lo stesso, che questa pagina sia aperta o no. I dubbi restano in coda ad aspettarti.",
   },
   auto: {
     title: "Automatica",
