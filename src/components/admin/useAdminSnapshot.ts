@@ -24,7 +24,7 @@ export interface AdminSnapshot {
 
 const POLL_MS = 3000;
 
-export function useAdminSnapshot(token: string) {
+export function useAdminSnapshot() {
   const [snapshot, setSnapshot] = useState<AdminSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   /**
@@ -34,18 +34,15 @@ export function useAdminSnapshot(token: string) {
    */
   const confirmed = useRef<Set<string>>(new Set());
 
-  const call = useCallback(
-    async (path: string, init?: RequestInit) => {
-      const response = await fetch(path, {
-        ...init,
-        headers: { "Content-Type": "application/json", "x-admin-token": token, ...init?.headers },
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    },
-    [token],
-  );
+  const call = useCallback(async (path: string, init?: RequestInit) => {
+    const response = await fetch(path, {
+      ...init,
+      headers: { "Content-Type": "application/json", ...init?.headers },
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

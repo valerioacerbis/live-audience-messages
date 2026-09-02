@@ -32,7 +32,7 @@ export const serverConfig = {
   security: {
     /** Salt per l'hash degli IP. Mai loggare o salvare l'IP in chiaro. */
     ipHashSalt: process.env.IP_HASH_SALT || "dev-salt-change-me",
-    adminToken: process.env.ADMIN_TOKEN || "dev-admin-token",
+    adminPassword: process.env.ADMIN_PASSWORD || "dev-admin-password",
     /** Corpo della richiesta oltre il quale si rifiuta subito, senza parsing. */
     maxBodyBytes: int(process.env.MAX_BODY_BYTES, 2048),
   },

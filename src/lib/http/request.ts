@@ -63,17 +63,17 @@ export async function readJsonBody(request: NextRequest): Promise<BodyResult<unk
 }
 
 /**
- * Verifica il token di moderazione a tempo costante.
+ * Verifica la password admin a tempo costante.
  *
  * Usata anche dalla pagina /admin, che non ha a disposizione una `NextRequest`.
  */
-export function matchesAdminToken(token: string | undefined | null): boolean {
-  if (!token) return false;
-  return tokensMatch(token, serverConfig.security.adminToken);
+export function matchesAdminPassword(password: string | undefined | null): boolean {
+  if (!password) return false;
+  return secretsMatch(password, serverConfig.security.adminPassword);
 }
 
-/** Confronto a tempo costante: un token non si verifica con `===`. */
-function tokensMatch(provided: string, expected: string): boolean {
+/** Confronto a tempo costante: un segreto non si verifica con `===`. */
+function secretsMatch(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
@@ -85,7 +85,7 @@ export function isAdmin(request: NextRequest): boolean {
   const fromQuery = request.nextUrl.searchParams.get("k");
   const fromHeader = request.headers.get("x-admin-token");
 
-  return [fromCookie, fromQuery, fromHeader].some(matchesAdminToken);
+  return [fromCookie, fromQuery, fromHeader].some(matchesAdminPassword);
 }
 
 const NO_STORE = {

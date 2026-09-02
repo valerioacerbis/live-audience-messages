@@ -94,7 +94,10 @@ vero nel Blocco B:**
 - Idempotenza: 3 invii identici → 1 riga nel DB, stesso id restituito
 - Rate limit (429), payload oversize (413), content-type errato (415), admin senza token (401)
 - Accumulo su `/qr` → apertura di `/display` → l'arretrato parte in ordine
-- Login admin: `/admin?k=…` → 307 → 303 con cookie httpOnly → 200
+- Login admin: `/admin?k=…` → 307 → 303 con cookie httpOnly → 200 — **superato**:
+  il login ora passa da un form password su `/admin/login` (POST su
+  `/api/admin/session`), non più da un token in querystring. Da riverificare
+  con questo flusso.
 - **Supabase contro un'istanza reale**: i tre punti a rischio del vecchio
   Blocco A sono stati toccati con mano — i commit `cae4a4a` (polling
   incrementale, cache display stantia, reset messaggi) e `98ececd` (cache da
@@ -261,9 +264,9 @@ Simula 350 spettatori con sessione persistente e arrivi pesati verso l'inizio
 - **Dopo, "Reset messaggi" in `/admin/settings`**: ogni esecuzione lascia
   ~465 messaggi finti nell'evento vero.
 
-Le soglie vive si leggono da `/api/health?k=$ADMIN_TOKEN` (campo `rateLimit`,
-visibile solo col token). È il modo per sapere cosa gira davvero in produzione
-invece di dedurlo dai default del codice.
+Le soglie vive si leggono da `/api/health?k=$ADMIN_PASSWORD` (campo
+`rateLimit`, visibile solo con la password admin). È il modo per sapere cosa
+gira davvero in produzione invece di dedurlo dai default del codice.
 
 ### Le due esecuzioni fatte
 

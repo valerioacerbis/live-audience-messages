@@ -1,16 +1,14 @@
+import { redirect } from "next/navigation";
+
 import { AdminConsole } from "@/components/admin/AdminConsole";
-import { AccessDenied } from "@/components/admin/AccessDenied";
-import { requireAdminToken } from "./authGate";
+import { requireAdmin } from "./authGate";
 
-export default async function AdminPage(props: PageProps<"/admin">) {
-  const params = await props.searchParams;
-  const token = await requireAdminToken(params);
-
-  if (!token) return <AccessDenied />;
+export default async function AdminPage() {
+  if (!(await requireAdmin())) redirect("/admin/login");
 
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-6">
-      <AdminConsole token={token} />
+      <AdminConsole />
     </main>
   );
 }

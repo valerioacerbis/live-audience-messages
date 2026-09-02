@@ -60,9 +60,9 @@ function StatDot({ value, urgency }: { value: number; urgency: Urgency | "neutra
   );
 }
 
-export function AdminConsole({ token }: { token: string }) {
+export function AdminConsole() {
   const { snapshot, setSnapshot, error, setError, call, confirmed, refresh } =
-    useAdminSnapshot(token);
+    useAdminSnapshot();
   /** Conferma non urgente (es. "10 frasi aggiunte."), separata dagli errori. */
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<Map<string, "approve" | "reject">>(new Map());

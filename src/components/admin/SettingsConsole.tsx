@@ -28,8 +28,8 @@ const MODE_LABELS: Record<ModerationMode, { title: string; hint: string }> = {
   },
 };
 
-export function SettingsConsole({ token }: { token: string }) {
-  const { snapshot, error, call, refresh } = useAdminSnapshot(token);
+export function SettingsConsole() {
+  const { snapshot, error, call, refresh } = useAdminSnapshot();
   /** Panic e reset chiedono due tap: un tocco per sbaglio non e' recuperabile. */
   const [armedPanic, setArmedPanic] = useState(false);
   const [armedPurge, setArmedPurge] = useState(false);

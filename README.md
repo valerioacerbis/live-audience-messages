@@ -40,7 +40,7 @@ Non serve un account. Non serve Docker. Non serve configurare niente.
 | Pubblico | http://localhost:3000 |
 | Maxischermo — invito | http://localhost:3000/qr |
 | Maxischermo — messaggi | http://localhost:3000/display |
-| Moderazione | http://localhost:3000/admin?k=dev-admin-token |
+| Moderazione | http://localhost:3000/admin/login (password: `dev-admin-password`) |
 | Moderazione — impostazioni | http://localhost:3000/admin/settings |
 
 Con i default l'app gira con un file JSON al posto del database e senza
@@ -215,7 +215,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=ey...
 SUPABASE_SERVICE_ROLE_KEY=ey...
 
 IP_HASH_SALT=$(openssl rand -hex 32)
-ADMIN_TOKEN=$(openssl rand -hex 16)
+ADMIN_PASSWORD=una-frase-breve-solo-per-questa-serata
 ```
 
 > La `service_role key` scavalca le policy RLS. Non deve **mai** avere il
@@ -324,8 +324,8 @@ software: è la rete del locale o il portatile che si addormenta.
 - [ ] `npm run build` senza errori, deploy fatto e provato
 - [ ] `/api/health` risponde `ok: true` con i driver giusti
 - [ ] QR generato, stampato **e provato** con due telefoni diversi
-- [ ] `ADMIN_TOKEN` e `IP_HASH_SALT` cambiati rispetto ai default
-- [ ] Link `/admin?k=…` salvato sul telefono di chi modera
+- [ ] `ADMIN_PASSWORD` e `IP_HASH_SALT` cambiati rispetto ai default
+- [ ] Password admin comunicata (a voce o su carta) a chi modera, non salvata in un link
 
 ### Al soundcheck
 

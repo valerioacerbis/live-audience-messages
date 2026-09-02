@@ -1,16 +1,14 @@
-import { AccessDenied } from "@/components/admin/AccessDenied";
+import { redirect } from "next/navigation";
+
 import { SettingsConsole } from "@/components/admin/SettingsConsole";
-import { requireAdminToken } from "../authGate";
+import { requireAdmin } from "../authGate";
 
-export default async function AdminSettingsPage(props: PageProps<"/admin/settings">) {
-  const params = await props.searchParams;
-  const token = await requireAdminToken(params);
-
-  if (!token) return <AccessDenied />;
+export default async function AdminSettingsPage() {
+  if (!(await requireAdmin())) redirect("/admin/login");
 
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-6">
-      <SettingsConsole token={token} />
+      <SettingsConsole />
     </main>
   );
 }
