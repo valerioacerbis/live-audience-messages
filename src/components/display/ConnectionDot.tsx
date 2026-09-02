@@ -10,6 +10,10 @@ import type { ConnectionStatus } from "@/lib/realtime/transport";
  * "connessione persa" — il pubblico non puo' farci nulla e rovinerebbe la
  * scena. Chi deve saperlo e' una persona sola, e quella persona e' vicina
  * allo schermo.
+ *
+ * Il numero e' "nuovi/totale": quanti messaggi sono appena arrivati e non
+ * ancora andati in scena, su quanti ne sono arrivati in tutto dall'inizio
+ * della serata.
  */
 
 const APPEARANCE: Record<ConnectionStatus, { color: string; label: string }> = {
@@ -22,19 +26,24 @@ const APPEARANCE: Record<ConnectionStatus, { color: string; label: string }> = {
 export function ConnectionDot({
   status,
   queueDepth,
+  totalReceived,
 }: {
   status: ConnectionStatus;
+  /** Messaggi nuovi, non ancora andati in scena. */
   queueDepth: number;
+  /** Messaggi arrivati in totale dall'inizio della serata. */
+  totalReceived: number;
 }) {
   const { color, label } = APPEARANCE[status];
 
   return (
-    <div className="absolute bottom-4 right-5 flex items-center gap-2 opacity-40">
+    <div className="absolute bottom-4 left-5 flex items-center gap-2 opacity-40">
       <span className={`size-1.5 rounded-full ${color}`} aria-hidden />
       <span className="sr-only">{label}</span>
-      {queueDepth > 0 && (
-        <span className="font-mono text-[0.6rem] text-ink-faint tabular-nums">
+      {totalReceived > 0 && (
+        <span className="font-mono text-[0.6rem] font-semibold text-white tabular-nums">
           {queueDepth}
+          <span className="text-white/60">/{totalReceived}</span>
         </span>
       )}
     </div>

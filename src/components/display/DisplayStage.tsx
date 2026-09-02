@@ -68,7 +68,11 @@ export function DisplayStage({ rendererName }: { rendererName?: string }) {
           )}
         </div>
 
-        <ConnectionDot status={connection.status} queueDepth={state.queue.length} />
+        <ConnectionDot
+          status={connection.status}
+          queueDepth={state.queue.length}
+          totalReceived={state.stats.received}
+        />
       </main>
     </MotionConfig>
   );
