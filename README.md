@@ -265,11 +265,19 @@ in sequenza verso il database, quindi ogni millisecondo di distanza si moltiplic
 per tre e lo paga chi sta col telefono in mano davanti al pulsante che gira. Se
 un giorno sposti il progetto Supabase, sposta anche questa riga.
 
-**Warm-up (opzionale ma consigliato).** La prima richiesta della serata paga il
-cold start. Non voglio che a pagarlo sia la prima persona che scrive: punta un
-pinger su `/api/health` ogni 5 minuti nelle ore dell'evento. Su Vercel Pro
-basta un cron; sul piano Hobby i cron girano una volta al giorno, quindi usa un
-servizio di uptime esterno gratuito.
+**Anti-pausa (fatto).** Il piano free di Supabase mette in pausa il progetto
+dopo 7 giorni senza richieste API — pausa vera, richiede un "Restore" manuale
+dalla dashboard. `vercel.json` contiene un cron che chiama `/api/health` una
+volta al giorno (limite del piano Hobby): la funzione esegue query vere contro
+Supabase, quindi conta come attività e il progetto non si addormenta mai fra
+una sessione di lavoro e l'altra.
+
+**Warm-up per la serata (opzionale ma consigliato, da fare a ridosso
+dell'evento).** Una volta al giorno non basta a evitare il cold start sulla
+prima persona che scrive quella sera: punta un pinger esterno gratuito
+(es. UptimeRobot, cron-job.org) su `/api/health` ogni 5 minuti nelle ore
+dell'evento — il cron di Vercel da solo, sul piano Hobby, non arriva a questa
+cadenza.
 
 Genera il QR per la serata:
 

@@ -232,9 +232,17 @@ recenti. Restano da spuntare, probabilmente in pochi minuti:
    `npm run qr -- --url https://<dominio> --out qr.svg` — non risulta ancora
    fatto (nessun `qr.svg` nella root).
 
-Warm-up per la serata (su piano Hobby i cron Vercel girano una volta al
-giorno, quindi `vercel.json` non ne contiene): puntare un pinger esterno
-gratuito su `/api/health` ogni 5 minuti nelle ore dell'evento.
+**Anti-pausa Supabase free — ✅ fatto (2026-09-04).** `vercel.json` ha un cron
+giornaliero su `/api/health` (limite del piano Hobby), che fa query vere
+contro il database e tiene il progetto attivo fra una sessione e l'altra.
+Prima di questo, un progetto free si mette in pausa da solo dopo 7 giorni
+senza traffico API e serve un "Restore" manuale dalla dashboard — rischio
+concreto nelle settimane fra ora e la serata, non solo un dettaglio.
+
+Warm-up per la serata (resta da fare, il cron giornaliero non basta): su
+piano Hobby i cron Vercel girano una volta al giorno, quindi puntare un
+pinger esterno gratuito su `/api/health` ogni 5 minuti nelle ore
+dell'evento.
 
 ---
 
