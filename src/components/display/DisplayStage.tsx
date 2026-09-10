@@ -38,17 +38,6 @@ export function DisplayStage({ rendererName }: { rendererName?: string }) {
     // prefers-reduced-motion del sistema operativo automaticamente.
     <MotionConfig reducedMotion="user">
       <main className="stage relative grid h-dvh w-full place-items-center bg-stage">
-        {/* Fondale: un respiro lentissimo, appena percettibile. Serve a non far
-            sembrare lo schermo spento quando non c'e' nessun messaggio. */}
-        <div
-          aria-hidden
-          className="animate-breathe pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 50% 45%, rgba(249,115,22,0.10), transparent 60%)",
-          }}
-        />
-
         <div className="relative grid place-items-center px-[6vw]">
           {state.current ? (
             <MessageRenderer

@@ -48,10 +48,6 @@ export function QrScreen() {
         >
           {code && <QrSvg matrix={code.matrix} />}
         </div>
-
-        <p className="font-mono text-[clamp(0.85rem,1.4vw,1.5rem)] tracking-wide text-ink-faint">
-          {code?.url.replace(/^https?:\/\//, "")}
-        </p>
       </div>
     </main>
   );
