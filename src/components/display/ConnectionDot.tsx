@@ -17,7 +17,7 @@ import type { ConnectionStatus } from "@/lib/realtime/transport";
  * `/admin/review`) esce da entrambi i numeri, cosi' coincidono sempre con
  * quello che un ricaricamento della pagina ricalcolerebbe da zero.
  *
- * In modalita' demo il pallino e' viola e al posto dei numeri c'e' "DEMO":
+ * In modalita' demo il pallino e' viola e al posto dei numeri c'e' una "D":
  * chi e' vicino allo schermo deve capire a colpo d'occhio quale delle due
  * finestre sta andando in onda.
  */
@@ -51,8 +51,8 @@ export function ConnectionDot({
       <span className={`size-1.5 rounded-full ${color}`} aria-hidden />
       <span className="sr-only">{label}</span>
       {status === "demo" ? (
-        <span className="font-mono text-[0.6rem] font-semibold tracking-widest text-white">
-          DEMO
+        <span className="font-mono text-[0.6rem] font-semibold text-white">
+          D
         </span>
       ) : totalReceived > 0 && (
         <span className="font-mono text-[0.6rem] font-semibold text-white tabular-nums">
