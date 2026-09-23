@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
 
+import { isDemoToggleKey } from "@/lib/display/demoToggleKey";
 import { demoMessages } from "@/lib/domain/demoFeed";
 import { SYNTHETIC_PHRASES } from "@/lib/domain/syntheticPhrases";
 import { displayReducer, initialDisplayState, type DisplayState } from "@/lib/display/engine";
@@ -62,6 +63,32 @@ describe("motore in modalita' demo", () => {
     expect(new Set(sequence.slice(0, total)).size).toBe(total);
     for (let i = 1; i < sequence.length; i++) expect(sequence[i]).not.toBe(sequence[i - 1]);
     expect(maxQueue).toBe(0);
+  });
+});
+
+describe("tasto della modalita' demo", () => {
+  const press = (key: string, extra: Partial<Parameters<typeof isDemoToggleKey>[0]> = {}) => ({
+    key,
+    repeat: false,
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    ...extra,
+  });
+
+  it("scatta con il tasto configurato, anche col Caps Lock acceso", () => {
+    expect(isDemoToggleKey(press("x"), "x")).toBe(true);
+    expect(isDemoToggleKey(press("X"), "x")).toBe(true);
+    expect(isDemoToggleKey(press("d"), "D")).toBe(true);
+  });
+
+  it("ignora gli altri tasti, le scorciatoie di sistema e le ripetizioni", () => {
+    expect(isDemoToggleKey(press("z"), "x")).toBe(false);
+    expect(isDemoToggleKey(press("x", { metaKey: true }), "x")).toBe(false);
+    expect(isDemoToggleKey(press("x", { ctrlKey: true }), "x")).toBe(false);
+    expect(isDemoToggleKey(press("x", { altKey: true }), "x")).toBe(false);
+    // Tasto tenuto premuto: niente rimbalzo avanti e indietro.
+    expect(isDemoToggleKey(press("x", { repeat: true }), "x")).toBe(false);
   });
 });
 

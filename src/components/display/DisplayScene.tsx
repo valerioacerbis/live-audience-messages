@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MotionConfig } from "motion/react";
 
+import { publicConfig } from "@/lib/config.public";
 import type { DisplayState } from "@/lib/display/engine";
 import { ClosingAnimation } from "./ClosingAnimation";
 import { MessageRenderer } from "./renderers";
@@ -154,6 +155,16 @@ export function FullscreenGate({
 
         <p className="text-xs text-ink-faint">
           Ricorda di disattivare sospensione e screensaver del computer.
+          {!demo && (
+            <>
+              {" "}
+              In caso di problemi, il tasto{" "}
+              <kbd className="font-semibold text-ink-dim">
+                {publicConfig.display.demoToggleKey.toUpperCase()}
+              </kbd>{" "}
+              passa alla modalità demo (e ritorno).
+            </>
+          )}
         </p>
       </div>
     </main>

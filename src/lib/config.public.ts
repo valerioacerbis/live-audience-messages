@@ -76,6 +76,12 @@ export const publicConfig = {
     burstSaturation: int(process.env.NEXT_PUBLIC_DISPLAY_BURST_SATURATION, 25),
     /** Tetto di sicurezza della coda in memoria. */
     maxQueueLength: int(process.env.NEXT_PUBLIC_DISPLAY_MAX_QUEUE, 500),
+    /**
+     * Tasto che su `/display` passa alla modalita' demo e ritorno (maiuscole
+     * o minuscole indifferenti, mai con Cmd/Ctrl/Alt). Da tastiera e non da
+     * un'icona: sul display il puntatore e' nascosto.
+     */
+    demoToggleKey: process.env.NEXT_PUBLIC_DISPLAY_DEMO_KEY || "x",
   },
 
   moderation: {

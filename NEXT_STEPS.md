@@ -33,13 +33,15 @@ sono deploy Production recenti.
   database o moderazione. Stesso reducer, stesso orologio e stessa scena del
   display vero ([`DisplayScene.tsx`](src/components/display/DisplayScene.tsx),
   condivisa da `DisplayStage` e `DemoStage`). Pallino viola con `DEMO`.
-- Icona ⇄ in basso a sinistra di `/display`
-  ([`DisplayModeSwitch.tsx`](src/components/display/DisplayModeSwitch.tsx)):
+- Tasto `X` su `/display` (`NEXT_PUBLIC_DISPLAY_DEMO_KEY`,
+  [`DisplayModeSwitch.tsx`](src/components/display/DisplayModeSwitch.tsx)):
   passa alla demo e ritorno **nella stessa pagina**, non con un link —
   una navigazione riscaricherebbe la pagina proprio col sito giù, e uscirebbe
-  dal fullscreen. Verificato in Chrome headless: display vero caricato, rete
-  messa offline, clic → demo in rotazione; rete di nuovo su, clic → display
-  vero risincronizzato.
+  dal fullscreen. Tastiera e non un'icona: la prima versione aveva un'icona
+  cliccabile, scartata perché sul display il puntatore è nascosto e non si
+  trova. Ignora Cmd/Ctrl/Alt+X e le ripetizioni di un tasto tenuto premuto.
+  Verificato in Chrome headless: display vero caricato, rete offline, `X` →
+  demo in rotazione; rete di nuovo su, `X` → display vero risincronizzato.
 - `npm run offline-demo` → [`assets/offline/display-demo.html`](assets/offline/display-demo.html):
   la stessa demo in un file unico da aprire dal disco (React, CSS Tailwind e
   Inter incorporati). **Va rigenerato dopo ogni modifica a frasi o grafica** —

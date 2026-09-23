@@ -9,10 +9,10 @@ import { DisplayModeSwitch } from "@/components/display/DisplayModeSwitch";
  *
  * `?demo=1` apre direttamente in modalita' demo: ruotano solo le frasi
  * pre-scritte, senza rete e senza moderazione. Dal display vero ci si passa
- * anche con l'icona in basso a sinistra, senza ricaricare la pagina (vedi
- * `DisplayModeSwitch`). Sta nell'URL e non in `/admin/settings` di
- * proposito: un'impostazione salvata nel database non si potrebbe accendere
- * proprio quando il database e' il pezzo che non risponde.
+ * anche col tasto X, senza ricaricare la pagina (vedi `DisplayModeSwitch`).
+ * Sta nell'URL e non in `/admin/settings` di proposito: un'impostazione
+ * salvata nel database non si potrebbe accendere proprio quando il database
+ * e' il pezzo che non risponde.
  */
 export default async function DisplayPage(props: PageProps<"/display">) {
   const params = await props.searchParams;

@@ -374,8 +374,8 @@ software: è la rete del locale o il portatile che si addormenta.
 - [ ] `/qr` e `/display` aperti in **due schede**, entrambe a schermo intero:
       durante il concerto si passa dall'una all'altra, non si digitano URL al buio
 - [ ] Su `/display`, click su "Entra in scena" e fullscreen verificato
-- [ ] Icona ⇄ in basso a sinistra provata: clic → demo (pallino viola
-      `DEMO`), clic → di nuovo il display vero
+- [ ] Tasto `X` provato sul display a schermo intero: `X` → demo (pallino
+      viola `DEMO`), `X` → di nuovo il display vero
 - [ ] **Finestra di riserva**: `/display?demo=1` aperta in una **seconda
       finestra** del browser (non una scheda della stessa), "Entra in scena",
       fullscreen, e lasciata lì. Una volta caricata non ha più bisogno di rete.
@@ -426,12 +426,12 @@ fa diagnosi in scena: si manda a schermo la demo, che fa girare solo le
 frasi pre-scritte (`src/lib/domain/syntheticPhrases.ts`) senza rete, senza
 database e senza moderazione. A schermo è identica al display vero.
 
-1. **Icona ⇄ in basso a sinistra del display**, sopra il pallino: un clic e
-   si passa alla demo nella stessa pagina, senza ricaricare niente e senza
-   uscire dal fullscreen — funziona anche con la rete già staccata. Il
-   cursore ricompare quando ci passi sopra: porta il mouse nell'angolo in
-   basso a sinistra e sali di poco. Un altro clic torna al display vero, che
-   si risincronizza da solo.
+1. **Tasto `X` sulla tastiera del portatile del display**: passa alla demo
+   nella stessa pagina, senza ricaricare niente e senza uscire dal
+   fullscreen — funziona anche con la rete già staccata. Un'altra `X` torna
+   al display vero, che si risincronizza da solo. (Il tasto si cambia con
+   `NEXT_PUBLIC_DISPLAY_DEMO_KEY`.) Serve che la finestra del display abbia
+   il focus: se hai appena usato un'altra finestra, cliccaci sopra prima.
 2. **Finestra pre-caricata** (preparata al soundcheck), se la pagina del
    display vero si è piantata del tutto o l'hai ricaricata mentre il sito era
    giù: `Cmd+Tab` / `Alt+Tab` sulla finestra `/display?demo=1`.
