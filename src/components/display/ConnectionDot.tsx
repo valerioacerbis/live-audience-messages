@@ -16,13 +16,21 @@ import type { ConnectionStatus } from "@/lib/realtime/transport";
  * serata. Un messaggio ritirato dopo l'approvazione (bloccato per errore da
  * `/admin/review`) esce da entrambi i numeri, cosi' coincidono sempre con
  * quello che un ricaricamento della pagina ricalcolerebbe da zero.
+ *
+ * In modalita' demo il pallino e' viola e al posto dei numeri c'e' "DEMO":
+ * chi e' vicino allo schermo deve capire a colpo d'occhio quale delle due
+ * finestre sta andando in onda.
  */
 
-const APPEARANCE: Record<ConnectionStatus, { color: string; label: string }> = {
+/** Stato della connessione, oppure la modalita' demo, che una connessione non ce l'ha. */
+export type DotStatus = ConnectionStatus | "demo";
+
+const APPEARANCE: Record<DotStatus, { color: string; label: string }> = {
   connecting: { color: "bg-yellow-500", label: "connessione in corso" },
   live: { color: "bg-emerald-500", label: "realtime attivo" },
   polling: { color: "bg-sky-500", label: "aggiornamento periodico" },
   offline: { color: "bg-red-500", label: "rete assente" },
+  demo: { color: "bg-violet-500", label: "modalità demo" },
 };
 
 export function ConnectionDot({
@@ -30,7 +38,7 @@ export function ConnectionDot({
   queueDepth,
   totalReceived,
 }: {
-  status: ConnectionStatus;
+  status: DotStatus;
   /** Messaggi nuovi, non ancora andati in scena. */
   queueDepth: number;
   /** Messaggi ricevuti e ancora validi (un ritiro dopo l'approvazione li toglie da qui). */
@@ -42,7 +50,11 @@ export function ConnectionDot({
     <div className="absolute bottom-4 left-5 flex items-center gap-2 opacity-40">
       <span className={`size-1.5 rounded-full ${color}`} aria-hidden />
       <span className="sr-only">{label}</span>
-      {totalReceived > 0 && (
+      {status === "demo" ? (
+        <span className="font-mono text-[0.6rem] font-semibold tracking-widest text-white">
+          DEMO
+        </span>
+      ) : totalReceived > 0 && (
         <span className="font-mono text-[0.6rem] font-semibold text-white tabular-nums">
           {queueDepth}
           <span className="text-white/60">/{totalReceived}</span>

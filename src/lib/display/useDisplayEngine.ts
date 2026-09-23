@@ -8,6 +8,7 @@ import {
   initialDisplayState,
   type DisplayState,
 } from "./engine";
+import { useDisplayClock } from "./useDisplayClock";
 import { useMessageStream, type MessageStreamState } from "./useMessageStream";
 
 const CACHE_KEY = "lam:display:cache";
@@ -115,25 +116,7 @@ export function useDisplayEngine(eventSlug: string): DisplayEngine {
     writeCache({ cursor: state.cursor, messages: state.all.slice(-CACHE_LIMIT) });
   }, [state.all, state.cursor]);
 
-  /* --- orologio del display --- */
-  useEffect(() => {
-    let frame = 0;
-    let last = 0;
-
-    const loop = (time: number) => {
-      // ~20 volte al secondo bastano per una macchina a stati con soglie nei
-      // decimi di secondo, e lasciano la GPU libera per le animazioni (e per
-      // il renderer WebGL dello STEP 2).
-      if (time - last >= 50) {
-        last = time;
-        dispatch({ type: "tick", now: Date.now() });
-      }
-      frame = requestAnimationFrame(loop);
-    };
-
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+  useDisplayClock(dispatch);
 
   /* --- telemetria dei messaggi andati in onda (best-effort) --- */
   const reported = useRef(new Set<string>());

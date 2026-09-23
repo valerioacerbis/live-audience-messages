@@ -26,6 +26,31 @@ Vercel.** Non più solo locale: `.env.local` gira con `DB_DRIVER=supabase` e
 (`live-audience-messages`) ha tutte le env var di produzione impostate, e ci
 sono deploy Production recenti.
 
+**Aggiunta del 2026-09-23 (modalità demo, il paracadute del display):**
+
+- `/display?demo=1`: fa ruotare solo le frasi pre-scritte di
+  [`syntheticPhrases.ts`](src/lib/domain/syntheticPhrases.ts), senza rete,
+  database o moderazione. Stesso reducer, stesso orologio e stessa scena del
+  display vero ([`DisplayScene.tsx`](src/components/display/DisplayScene.tsx),
+  condivisa da `DisplayStage` e `DemoStage`). Pallino viola con `DEMO`.
+- Icona ⇄ in basso a sinistra di `/display`
+  ([`DisplayModeSwitch.tsx`](src/components/display/DisplayModeSwitch.tsx)):
+  passa alla demo e ritorno **nella stessa pagina**, non con un link —
+  una navigazione riscaricherebbe la pagina proprio col sito giù, e uscirebbe
+  dal fullscreen. Verificato in Chrome headless: display vero caricato, rete
+  messa offline, clic → demo in rotazione; rete di nuovo su, clic → display
+  vero risincronizzato.
+- `npm run offline-demo` → [`assets/offline/display-demo.html`](assets/offline/display-demo.html):
+  la stessa demo in un file unico da aprire dal disco (React, CSS Tailwind e
+  Inter incorporati). **Va rigenerato dopo ogni modifica a frasi o grafica** —
+  non si aggiorna da solo col deploy.
+- Procedura nel RUNBOOK del README, "Piano B — modalità demo".
+- Verificato: 134 test (i nuovi in `tests/unit/demo.test.ts` controllano anche
+  che il bundle della demo non contenga fetch/socket/Supabase/localStorage),
+  typecheck pulito; demo web su dev server e file offline aperti in Chrome
+  headless con la rete bloccata: zero richieste dopo il caricamento, frasi in
+  rotazione. Non ancora visto su schermo vero: da aggiungere al Blocco B.
+
 **Aggiunta del 2026-09-02 (frase di chiusura configurabile a caldo):**
 
 - La frase della schermata di chiusura non è più fissa a build time.
@@ -203,6 +228,9 @@ Aprire `/qr` e `/display` su uno schermo grande e controllare:
 - [ ] Fullscreen ("Entra in scena") e wake lock: lo schermo non si spegne in 15 minuti
 - [ ] Il pallino di stato è invisibile da lontano ma leggibile da vicino
 - [ ] `/admin` su un telefono vero: i bottoni si centrano al buio con una mano
+- [ ] Modalità demo su schermo vero: `/display?demo=1` e
+      `assets/offline/display-demo.html` (aperto col wifi spento) identici al
+      display normale; pallino viola `DEMO` leggibile solo da vicino
 - [ ] Schermata di chiusura su schermo vero: "Vai alla schermata finale" da
       `/admin` (doppio tap), le tre parole leggibili da lontano, frase finale
       con zoom impercettibile. Poi "Rimetti i messaggi a schermo" e verificare che
@@ -445,6 +473,7 @@ Sono costate discussione. Il perché di ciascuna è nel README.
 | **Rotazione "meno mostrato prima"** | Con una canzone lunga e pochi messaggi, un giro mescolato non basta a evitare che qualcuno si veda ripetuto molto più degli altri: si pesca sempre tra i mostrati meno volte, mai lo stesso due volte di fila |
 | **Chiusura bidirezionale, non un lucchetto** | "Vai alla schermata finale" riusa `status`/`event.ended` già esistenti nello schema; il display rispecchia la verità del server in entrambe le direzioni, cosi' "Rimetti i messaggi a schermo" (doppio tap, non tocca i messaggi) fa ripartire la rotazione da sola, senza reload — necessario sia contro un tap per sbaglio la sera vera, sia per provare l'animazione senza smontare l'evento di test. Rinominato da "Chiudi/Riapri la serata" (2026-09-02): può servire anche a metà concerto, non solo sull'ultimo brano |
 | **Frase di chiusura in DB, non solo in `NEXT_PUBLIC_CLOSING_PHRASE`** (2026-09-02) | `EventRecord.closingPhrase` (nullable, `null` = usa il default applicativo), editabile da `/admin/settings`, viaggia nello stesso payload `getFeed` di `ended` — stesso modello "campanella + rilettura", nessun nuovo canale |
+| **Modalità demo da URL, non da `/admin/settings`, e niente secondo progetto Vercel** (2026-09-23) | Un'impostazione in DB non si accende quando il DB è giù. Un secondo progetto Vercel condividerebbe piattaforma e database. La riserva è `/display?demo=1` pre-caricata in una seconda finestra, e l'HTML offline sul disco |
 
 ---
 

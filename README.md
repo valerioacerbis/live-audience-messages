@@ -360,6 +360,10 @@ software: è la rete del locale o il portatile che si addormenta.
 - [ ] QR generato, stampato **e provato** con due telefoni diversi
 - [ ] `ADMIN_PASSWORD` e `IP_HASH_SALT` cambiati rispetto ai default
 - [ ] Password admin comunicata (a voce o su carta) a chi modera, non salvata in un link
+- [ ] `npm run offline-demo` rigenerato **dopo** l'ultima modifica a frasi o
+      grafica, e `assets/offline/display-demo.html` copiato sul desktop del
+      portatile del display (e su una chiavetta). Aperto una volta **con il
+      wifi spento** per vedere che parte
 
 ### Al soundcheck
 
@@ -370,6 +374,12 @@ software: è la rete del locale o il portatile che si addormenta.
 - [ ] `/qr` e `/display` aperti in **due schede**, entrambe a schermo intero:
       durante il concerto si passa dall'una all'altra, non si digitano URL al buio
 - [ ] Su `/display`, click su "Entra in scena" e fullscreen verificato
+- [ ] Icona ⇄ in basso a sinistra provata: clic → demo (pallino viola
+      `DEMO`), clic → di nuovo il display vero
+- [ ] **Finestra di riserva**: `/display?demo=1` aperta in una **seconda
+      finestra** del browser (non una scheda della stessa), "Entra in scena",
+      fullscreen, e lasciata lì. Una volta caricata non ha più bisogno di rete.
+      Riconoscibile da vicino: pallino viola e scritta `DEMO` in basso a sinistra
 - [ ] `npm run burst -- --count 30 --window 3` e schermo guardato per un minuto
 - [ ] Prova di disconnessione: stacca la rete del display per trenta secondi.
       Deve continuare a mostrare la coda e riprendere da solo, senza che il
@@ -387,8 +397,9 @@ software: è la rete del locale o il portatile che si addormenta.
 
 - Si parte su `/qr`. Quando ci sono abbastanza messaggi in coda (li vedi su
   `/admin`), passa alla scheda `/display`: da lì in poi solo messaggi
-- Il pallino in basso a destra del display: verde = realtime, azzurro =
-  polling *(va bene lo stesso)*, rosso = rete assente
+- Il pallino in basso a sinistra del display: verde = realtime, azzurro =
+  polling *(va bene lo stesso)*, rosso = rete assente, viola con `DEMO` =
+  sei sulla finestra di riserva
 - Se qualcosa di brutto arriva a schermo: **Svuota lo schermo adesso** in
   `/admin/settings` (chiede due tap)
 - Se la coda si allunga troppo, passa a **automatica** dalla console
@@ -406,6 +417,41 @@ software: è la rete del locale o il portatile che si addormenta.
 | Arrivano troppi messaggi | Alza `RL_SESSION_WINDOW_MS`, oppure lascia fare alla compressione automatica dei tempi |
 | "Hai già inviato diversi messaggi" a chi non ha scritto niente | Sono più spettatori dietro lo stesso IP dell'operatore. Su Vercel metti `RL_IP_MAX=0` e redeploy: l'ambito si spegne, sessione e circuit breaker restano |
 | Spam da fuori | Accendi Turnstile |
+| Il display vero è bloccato e non riparte (sito giù, Supabase giù, rete giù) | Piano B qui sotto: passa alla finestra `/display?demo=1` già aperta |
+
+### Piano B — modalità demo
+
+Quando il display vero non si riprende da solo in un paio di minuti, non si
+fa diagnosi in scena: si manda a schermo la demo, che fa girare solo le
+frasi pre-scritte (`src/lib/domain/syntheticPhrases.ts`) senza rete, senza
+database e senza moderazione. A schermo è identica al display vero.
+
+1. **Icona ⇄ in basso a sinistra del display**, sopra il pallino: un clic e
+   si passa alla demo nella stessa pagina, senza ricaricare niente e senza
+   uscire dal fullscreen — funziona anche con la rete già staccata. Il
+   cursore ricompare quando ci passi sopra: porta il mouse nell'angolo in
+   basso a sinistra e sali di poco. Un altro clic torna al display vero, che
+   si risincronizza da solo.
+2. **Finestra pre-caricata** (preparata al soundcheck), se la pagina del
+   display vero si è piantata del tutto o l'hai ricaricata mentre il sito era
+   giù: `Cmd+Tab` / `Alt+Tab` sulla finestra `/display?demo=1`.
+3. **Se quella finestra non c'è più** (browser riavviato, portatile
+   ripartito) e il sito risponde: apri `/display?demo=1` e premi "Entra in
+   scena".
+4. **Se il sito non si carica per niente**: doppio click su
+   `display-demo.html` sul desktop (o dalla chiavetta), "Entra in scena". È un
+   file unico, si apre dal disco, non chiede niente a nessuno.
+
+Da sapere prima: la demo salva lo schermo, non il pubblico. Chi scrive dal
+telefono mentre il sito è giù vede un errore, e i messaggi veri non arrivano
+alla demo. Quando il sito torna, si ritorna alla finestra `/display` vera: si
+risincronizza da sola.
+
+L'interruttore sta nell'URL e non in `/admin/settings` di proposito:
+un'impostazione salvata nel database non si potrebbe accendere proprio quando
+il database è il pezzo che non risponde. Per lo stesso motivo non serve un
+secondo progetto Vercel: condividerebbe piattaforma e database con il primo,
+cioè i due guasti più probabili.
 
 ---
 
@@ -427,7 +473,7 @@ src/
 ├─ app/
 │  ├─ page.tsx                 /          pubblico
 │  ├─ qr/page.tsx              /qr        maxischermo: invito
-│  ├─ display/page.tsx         /display   maxischermo: messaggi
+│  ├─ display/page.tsx         /display   maxischermo: messaggi (?demo=1: solo frasi pre-scritte, senza rete)
 │  ├─ admin/page.tsx           /admin              moderazione: coda
 │  ├─ admin/settings/page.tsx  /admin/settings     modalità, reset, panic
 │  └─ api/
@@ -459,11 +505,12 @@ posto che sa cosa sia Supabase. I componenti non fanno mai I/O diretto.
 ```bash
 npm run dev         # sviluppo
 npm run build       # build di produzione
-npm test            # 122 test
+npm test            # 134 test
 npm run typecheck   # TypeScript strict
 npm run lint
 npm run burst       # prova di carico da guardare a schermo
 npm run qr          # genera il QR
+npm run offline-demo  # display demo in un unico HTML offline (assets/offline/)
 ```
 
 ---
