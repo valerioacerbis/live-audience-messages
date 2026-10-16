@@ -119,7 +119,23 @@ describe("gestione dei burst", () => {
     const calm = holdDurationMs(80, 0);
     const busy = holdDurationMs(80, publicConfig.display.burstSaturation);
     expect(busy).toBeLessThan(calm);
-    expect(busy).toBe(publicConfig.display.holdMinMs);
+    expect(busy).toBe(publicConfig.display.holdBurstMinMs);
+  });
+
+  it("non accorcia mai una frase gia' piu' breve del minimo di accelerazione", () => {
+    const calm = holdDurationMs(5, 0);
+    expect(calm).toBeLessThan(publicConfig.display.holdBurstMinMs);
+    expect(holdDurationMs(5, 10_000)).toBe(calm);
+  });
+
+  it("accelera in modo graduale, non a scatti", () => {
+    const { burstThreshold, burstSaturation } = publicConfig.display;
+    let previous = holdDurationMs(60, burstThreshold);
+    for (let depth = burstThreshold + 1; depth <= burstSaturation; depth++) {
+      const current = holdDurationMs(60, depth);
+      expect(previous - current).toBeLessThanOrEqual(100);
+      previous = current;
+    }
   });
 
   it("non scende mai sotto il minimo leggibile", () => {

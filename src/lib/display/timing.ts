@@ -15,8 +15,11 @@ function clamp(value: number, min: number, max: number): number {
  *   rispetto al pubblico, e mostrare alle 23:10 un messaggio delle 22:40 e'
  *   peggio che mostrarlo per meno tempo.
  *
- * Quindi il tempo di lettura viene compresso verso il minimo man mano che la
- * coda cresce, in modo continuo: nessuno scatto percepibile a schermo.
+ * Quindi il tempo di lettura viene compresso man mano che la coda cresce, in
+ * modo continuo: nessuno scatto percepibile a schermo. Ma solo fino a
+ * `holdBurstMinMs`, non fino al minimo assoluto: l'accelerazione e' un
+ * ritocco, non una corsa, e una frase gia' breve non viene mai accorciata.
+ * Entrata e uscita (enterMs/exitMs) non cambiano mai.
  */
 export function holdDurationMs(bodyLength: number, queueDepth: number): number {
   const readingTime = clamp(
@@ -24,11 +27,12 @@ export function holdDurationMs(bodyLength: number, queueDepth: number): number {
     display.holdMinMs,
     display.holdMaxMs,
   );
+  const floor = Math.min(readingTime, Math.max(display.holdMinMs, display.holdBurstMinMs));
 
   const span = Math.max(1, display.burstSaturation - display.burstThreshold);
   const pressure = clamp((queueDepth - display.burstThreshold) / span, 0, 1);
 
-  return Math.round(readingTime + (display.holdMinMs - readingTime) * pressure);
+  return Math.round(readingTime + (floor - readingTime) * pressure);
 }
 
 /** Stima di quanto ci vuole a smaltire la coda: la mostro all'operatore. */

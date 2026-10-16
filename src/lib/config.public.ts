@@ -72,8 +72,18 @@ export const publicConfig = {
     holdMaxMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_MAX_MS, 14000),
     /** Oltre questa profondita' di coda si comincia ad accelerare. */
     burstThreshold: int(process.env.NEXT_PUBLIC_DISPLAY_BURST_THRESHOLD, 8),
-    /** Coda satura: hold al minimo. */
-    burstSaturation: int(process.env.NEXT_PUBLIC_DISPLAY_BURST_SATURATION, 25),
+    /**
+     * Coda satura: hold al minimo dell'accelerazione. Larga apposta: lo
+     * schermo resta acceso anche dopo il concerto, quindi la coda non va
+     * smaltita in fretta, e una rampa lunga non si nota a schermo.
+     */
+    burstSaturation: int(process.env.NEXT_PUBLIC_DISPLAY_BURST_SATURATION, 60),
+    /**
+     * Fin dove l'accelerazione accorcia una frase: piu' alto di holdMinMs,
+     * cosi' anche con 200 frasi in coda una frase tipica (~8s) perde al
+     * massimo un quinto del tempo. Le frasi gia' piu' brevi non si toccano.
+     */
+    holdBurstMinMs: int(process.env.NEXT_PUBLIC_DISPLAY_HOLD_BURST_MIN_MS, 6500),
     /** Tetto di sicurezza della coda in memoria. */
     maxQueueLength: int(process.env.NEXT_PUBLIC_DISPLAY_MAX_QUEUE, 500),
     /**
@@ -88,16 +98,26 @@ export const publicConfig = {
     /** Sotto questa soglia l'admin avvisa che la rotazione e' scarna. */
     lowRotationThreshold: int(process.env.NEXT_PUBLIC_LOW_ROTATION_THRESHOLD, 8),
     /**
-     * Da questa soglia in su la rotazione e' abbondante: pallino verde.
-     * 50 e' calcolato sui 7 minuti della canzone e sui tempi reali del
-     * display (holdBaseMs/holdPerCharMs in questo stesso file): con una
-     * frase di lunghezza media (~60 caratteri) restano a schermo circa
-     * 8-9s l'una, quindi ~47-50 frasi bastano a coprire l'intera canzone
-     * senza mai ripetersi.
+     * Da questa soglia in su la rotazione e' abbondante: semaforo verde.
+     * Calcolata sugli 8:25 (505s) della canzone e sui tempi reali del
+     * display (enter + hold + exit in questo stesso file): una frase di
+     * lunghezza tipica (~60 caratteri) occupa ~9s di ciclo, quindi ~57
+     * frasi coprono la canzone senza ripetersi. 60 con un po' di margine.
      */
     comfortableRotationThreshold: int(
       process.env.NEXT_PUBLIC_COMFORTABLE_ROTATION_THRESHOLD,
-      50,
+      60,
+    ),
+    /**
+     * Da questa soglia in su ci sono piu' frasi di quante ne entrino nella
+     * canzone: semaforo blu. Con frasi tipiche (~60 caratteri) e la coda
+     * accelerata fino a holdBurstMinMs (6,5s + enter + exit = 7,4s) in 505s
+     * ne passano ~68. Le altre restano in coda in ordine di arrivo e vanno a
+     * schermo dopo la canzone: lo schermo resta acceso.
+     */
+    overflowRotationThreshold: int(
+      process.env.NEXT_PUBLIC_OVERFLOW_ROTATION_THRESHOLD,
+      70,
     ),
   },
 
