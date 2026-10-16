@@ -27,7 +27,7 @@ export default function AudiencePage() {
             {publicConfig.event.name}
           </p>
           <h1 className="text-3xl font-semibold tracking-tight text-balance">
-            Sei davanti allo specchio
+            Fai una promessa. Cambia il mondo.
           </h1>
           <p className="text-balance text-ink-dim">
             Cosa sei disposto a fare, da oggi, per rendere il mondo un posto
