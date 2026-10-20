@@ -40,7 +40,14 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   try {
     const event = await resolveEvent(publicConfig.event.slug);
-    const stats = await getRepository().stats(event.id);
+    const repo = getRepository();
+    // `rotating` e' lo stesso conteggio di /admin: quante frasi il display
+    // farebbe girare adesso (rispetta il panic button, a differenza di
+    // `stats.approved`). Lo legge la schermata "Entra in scena".
+    const [stats, rotating] = await Promise.all([
+      repo.stats(event.id),
+      repo.countRotating(event.id, event.clearedAt, new Date().toISOString()),
+    ]);
 
     return jsonOk({
       ok: true,
@@ -52,6 +59,7 @@ export async function GET(request: NextRequest): Promise<Response> {
         operatorPresent: isOperatorPresent(event.operatorLastSeenAt),
       },
       stats,
+      rotating,
       // Solo con il token admin: le soglie dicono a chi volesse abusarne
       // quanto spazio ha prima di essere fermato. Il pinger di warm-up
       // chiama senza token e riceve tutto il resto.

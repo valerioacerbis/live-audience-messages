@@ -11,11 +11,12 @@ import type { ConnectionStatus } from "@/lib/realtime/transport";
  * scena. Chi deve saperlo e' una persona sola, e quella persona e' vicina
  * allo schermo.
  *
- * Il numero e' "nuovi/totale": quanti messaggi sono appena arrivati e non
- * ancora andati in scena, su quanti sono validi in tutto dall'inizio della
- * serata. Un messaggio ritirato dopo l'approvazione (bloccato per errore da
- * `/admin/review`) esce da entrambi i numeri, cosi' coincidono sempre con
- * quello che un ricaricamento della pagina ricalcolerebbe da zero.
+ * Accanto ci sono due numeri senza etichetta, `ricevuti · in attesa`: i
+ * messaggi validi dall'inizio della serata, e quanti di questi aspettano
+ * ancora il primo passaggio a schermo. Un messaggio ritirato dopo
+ * l'approvazione (bloccato per errore da `/admin/review`) esce da entrambi,
+ * cosi' coincidono sempre con quello che un ricaricamento della pagina
+ * ricalcolerebbe da zero.
  *
  * In modalita' demo il pallino e' viola e al posto dei numeri c'e' una "D":
  * chi e' vicino allo schermo deve capire a colpo d'occhio quale delle due
@@ -56,8 +57,10 @@ export function ConnectionDot({
         </span>
       ) : totalReceived > 0 && (
         <span className="font-mono text-[0.6rem] font-semibold text-white tabular-nums">
-          {queueDepth}
-          <span className="text-white/60">/{totalReceived}</span>
+          {totalReceived}
+          <span className="text-white/60">
+            {" "}· {queueDepth}
+          </span>
         </span>
       )}
     </div>

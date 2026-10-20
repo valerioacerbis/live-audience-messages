@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MotionConfig } from "motion/react";
 
 import { publicConfig } from "@/lib/config.public";
+import { isToggleKey } from "@/lib/display/demoToggleKey";
 import type { DisplayState } from "@/lib/display/engine";
 import { ClosingAnimation } from "./ClosingAnimation";
 import { MessageRenderer } from "./renderers";
@@ -32,11 +33,12 @@ export function DisplayScene({
   rendererName?: string;
 }) {
   useWakeLock();
+  const showClosing = useClosingToggle(state.ended);
 
   // Chiusura della serata: sostituisce la scena intera invece di infilarsi
   // tra rotazione e standby. Torna alla rotazione da sola se il moderatore
-  // riapre la serata (vedi `state.ended` in engine.ts).
-  if (state.ended) {
+  // riapre la serata (vedi `state.ended` in engine.ts), o con lo spazio.
+  if (showClosing) {
     return <ClosingAnimation phrase={state.closingPhrase} />;
   }
 
@@ -73,6 +75,46 @@ export function DisplayScene({
       </main>
     </MotionConfig>
   );
+}
+
+/**
+ * Schermata di chiusura comandata dal palco, senza moderatore.
+ *
+ * Lo spazio (`publicConfig.display.closingToggleKey`) manda in onda la
+ * chiusura, e alla seconda pressione torna alla rotazione. E' un interruttore
+ * di QUESTO schermo, non una chiusura della serata: niente richiesta al
+ * server, niente password, quindi funziona anche con la rete giu' e nel
+ * piano B. `/admin` non ne sa niente.
+ *
+ * Vince l'ultima azione: se dopo lo spazio il moderatore chiude o riapre la
+ * serata da `/admin/settings`, lo schermo segue lui e l'interruttore si
+ * azzera. Un ricaricamento della pagina (o il passaggio col tasto X) lo
+ * azzera anche, e lo schermo torna a quello che dice il server.
+ */
+function useClosingToggle(serverEnded: boolean): boolean {
+  const [override, setOverride] = useState<boolean | null>(null);
+
+  // Il server ha cambiato idea: l'interruttore locale non conta piu'.
+  // Aggiornamento durante il render, il modo che React raccomanda per lo
+  // stato derivato da una prop (niente effetto, niente render in piu').
+  const [lastServerEnded, setLastServerEnded] = useState(serverEnded);
+  if (serverEnded !== lastServerEnded) {
+    setLastServerEnded(serverEnded);
+    setOverride(null);
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isToggleKey(event, publicConfig.display.closingToggleKey)) return;
+      // Lo spazio altrimenti scorre la pagina o "clicca" un elemento a fuoco.
+      event.preventDefault();
+      setOverride((current) => !(current ?? serverEnded));
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [serverEnded]);
+
+  return override ?? serverEnded;
 }
 
 /**
@@ -115,46 +157,72 @@ function useWakeLock(): void {
 export function FullscreenGate({
   children,
   demo = false,
+  info,
 }: {
   children: React.ReactNode;
   /** Dice all'operatore quale delle due finestre ha davanti, prima di entrare. */
   demo?: boolean;
+  /**
+   * Sotto il pulsante, finche' non si entra (smonta col click). Arriva da
+   * fuori perche' sul display vero e' `ReadyCount`, che parla con la rete,
+   * e questo file finisce anche nel bundle del piano B.
+   */
+  info?: React.ReactNode;
 }) {
   const [entered, setEntered] = useState(false);
+
+  // Un solo ingresso anche se click e Invio arrivano insieme (Invio sul
+  // pulsante a fuoco genera anche un click).
+  const entering = useRef(false);
+  const enter = useCallback(async () => {
+    if (entering.current) return;
+    entering.current = true;
+    try {
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // Fullscreen negato: si continua comunque, in finestra.
+    }
+    setEntered(true);
+  }, []);
+
+  // Invio da tastiera, ovunque sia il fuoco: in regia il mouse non e' sempre
+  // a portata. Il tasto premuto conta come gesto dell'utente, quindi il
+  // browser concede lo schermo intero come per il click.
+  useEffect(() => {
+    if (entered) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      void enter();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [entered, enter]);
 
   if (entered) return <>{children}</>;
 
   return (
     <main className="grid h-dvh place-items-center bg-stage px-6">
       <div className="flex max-w-md flex-col items-center gap-8 text-center">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {demo ? "Display — modalità demo" : "Display"}
-          </h1>
-          <p className="text-balance text-ink-dim">
-            {demo
-              ? "Ruotano solo le frasi pre-scritte, senza rete e senza moderazione. È la finestra di riserva: tienila pronta e passaci solo se il display vero si blocca."
-              : "Il browser richiede un click per entrare a schermo intero. Fallo una volta sola, prima che inizi il concerto."}
-          </p>
-        </div>
-
         <button
           type="button"
-          onClick={async () => {
-            try {
-              await document.documentElement.requestFullscreen();
-            } catch {
-              // Fullscreen negato: si continua comunque, in finestra.
-            }
-            setEntered(true);
-          }}
+          onClick={() => void enter()}
           className="rounded-full bg-accent px-10 py-4 text-lg font-semibold text-black transition active:scale-98"
         >
           Entra in scena
         </button>
 
+        {info}
+
         <p className="text-xs text-ink-faint">
-          Ricorda di disattivare sospensione e screensaver del computer.
+          {/* Niente "demo" scritto da nessuna parte: se questa schermata finisce
+              per sbaglio sul maxischermo, il pubblico non deve leggere che
+              esiste una versione finta. All'operatore basta "piano B", lo
+              stesso nome del RUNBOOK. */}
+          {demo && <span className="font-semibold text-ink-dim">Piano B. </span>}
+          Si entra anche con{" "}
+          <kbd className="font-semibold text-ink-dim">Invio</kbd>. Ricorda di disattivare
+          sospensione e screensaver del computer.
           {!demo && (
             <>
               {" "}
@@ -162,7 +230,7 @@ export function FullscreenGate({
               <kbd className="font-semibold text-ink-dim">
                 {publicConfig.display.demoToggleKey.toUpperCase()}
               </kbd>{" "}
-              passa alla modalità demo (e ritorno).
+              passa al piano B.
             </>
           )}
         </p>

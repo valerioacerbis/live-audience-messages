@@ -399,7 +399,16 @@ software: è la rete del locale o il portatile che si addormenta.
   `/admin`), passa alla scheda `/display`: da lì in poi solo messaggi
 - Il pallino in basso a sinistra del display: verde = realtime, azzurro =
   polling *(va bene lo stesso)*, rosso = rete assente, viola con `DEMO` =
-  sei sulla finestra di riserva
+  sei sulla finestra di riserva. Accanto, due numeri come `60 · 8`:
+  messaggi ricevuti · quanti devono ancora essere mostrati
+- Prima di premere **Entra in scena**, sotto il pulsante leggi quante frasi
+  sono pronte a girare (si aggiorna ogni 5 s), più quelle ancora in
+  moderazione se ce ne sono. Si entra anche premendo **Invio**, senza mouse
+- A fine concerto, senza moderatore: **Spazio** sul display manda in onda la
+  schermata di chiusura, un secondo Spazio torna alla rotazione. Vale solo
+  per quello schermo (non chiude la serata in `/admin`) e funziona anche nel
+  piano B e senza rete. Se poi il moderatore chiude o riapre la serata, lo
+  schermo segue lui
 - Se qualcosa di brutto arriva a schermo: **Svuota lo schermo adesso** in
   `/admin/settings` (chiede due tap)
 - Se la coda si allunga troppo, passa a **automatica** dalla console

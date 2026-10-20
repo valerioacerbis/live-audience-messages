@@ -1,5 +1,6 @@
 import { FullscreenGate } from "@/components/display/DisplayScene";
 import { DisplayModeSwitch } from "@/components/display/DisplayModeSwitch";
+import { ReadyCount } from "@/components/display/ReadyCount";
 
 /**
  * Pagina del maxischermo.
@@ -20,7 +21,7 @@ export default async function DisplayPage(props: PageProps<"/display">) {
   const demo = params.demo === "1";
 
   return (
-    <FullscreenGate demo={demo}>
+    <FullscreenGate demo={demo} info={demo ? undefined : <ReadyCount />}>
       <DisplayModeSwitch initialDemo={demo} rendererName={renderer} />
     </FullscreenGate>
   );

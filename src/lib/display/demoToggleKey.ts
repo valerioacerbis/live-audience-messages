@@ -1,5 +1,6 @@
 /**
- * Il tasto premuto e' quello che passa alla modalita' demo?
+ * Il tasto premuto e' quello di un interruttore del display? Lo usano il
+ * passaggio al piano B (X) e la schermata di chiusura (Spazio).
  *
  * Maiuscole e minuscole indifferenti (il Caps Lock acceso non deve
  * disarmare il paracadute). Mai con Cmd/Ctrl/Alt: Cmd+X e simili sono
@@ -15,7 +16,7 @@ export interface KeyPress {
   altKey: boolean;
 }
 
-export function isDemoToggleKey(event: KeyPress, toggleKey: string): boolean {
+export function isToggleKey(event: KeyPress, toggleKey: string): boolean {
   if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return false;
   return event.key.toLowerCase() === toggleKey.toLowerCase();
 }

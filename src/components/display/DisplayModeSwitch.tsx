@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { publicConfig } from "@/lib/config.public";
-import { isDemoToggleKey } from "@/lib/display/demoToggleKey";
+import { isToggleKey } from "@/lib/display/demoToggleKey";
 import { DemoStage } from "./DemoStage";
 import { DisplayStage } from "./DisplayStage";
 
@@ -33,7 +33,7 @@ export function DisplayModeSwitch({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!isDemoToggleKey(event, publicConfig.display.demoToggleKey)) return;
+      if (!isToggleKey(event, publicConfig.display.demoToggleKey)) return;
       event.preventDefault();
       setDemo((current) => {
         const next = !current;

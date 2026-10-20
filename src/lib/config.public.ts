@@ -92,6 +92,18 @@ export const publicConfig = {
      * un'icona: sul display il puntatore e' nascosto.
      */
     demoToggleKey: process.env.NEXT_PUBLIC_DISPLAY_DEMO_KEY || "x",
+    /**
+     * Tasto che su `/display` manda in onda la schermata di chiusura e, alla
+     * seconda pressione, torna alla rotazione. Vale solo per quello schermo:
+     * non chiude la serata sul server (quello resta in `/admin/settings`).
+     * Default lo spazio, il tasto piu' facile da trovare al buio.
+     */
+    closingToggleKey: process.env.NEXT_PUBLIC_DISPLAY_CLOSING_KEY || " ",
+    /**
+     * Ogni quanto la schermata "Entra in scena" rilegge quante frasi sono
+     * pronte a girare. Solo prima del click: dopo comanda il motore.
+     */
+    gateRefreshMs: int(process.env.NEXT_PUBLIC_DISPLAY_GATE_REFRESH_MS, 5000),
   },
 
   moderation: {

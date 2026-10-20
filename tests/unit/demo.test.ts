@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { build } from "esbuild";
 import { describe, expect, it } from "vitest";
 
-import { isDemoToggleKey } from "@/lib/display/demoToggleKey";
+import { publicConfig } from "@/lib/config.public";
+import { isToggleKey } from "@/lib/display/demoToggleKey";
 import { demoMessages } from "@/lib/domain/demoFeed";
 import { SYNTHETIC_PHRASES } from "@/lib/domain/syntheticPhrases";
 import { displayReducer, initialDisplayState, type DisplayState } from "@/lib/display/engine";
@@ -66,8 +67,8 @@ describe("motore in modalita' demo", () => {
   });
 });
 
-describe("tasto della modalita' demo", () => {
-  const press = (key: string, extra: Partial<Parameters<typeof isDemoToggleKey>[0]> = {}) => ({
+describe("tasti del display (piano B e chiusura)", () => {
+  const press = (key: string, extra: Partial<Parameters<typeof isToggleKey>[0]> = {}) => ({
     key,
     repeat: false,
     metaKey: false,
@@ -77,18 +78,28 @@ describe("tasto della modalita' demo", () => {
   });
 
   it("scatta con il tasto configurato, anche col Caps Lock acceso", () => {
-    expect(isDemoToggleKey(press("x"), "x")).toBe(true);
-    expect(isDemoToggleKey(press("X"), "x")).toBe(true);
-    expect(isDemoToggleKey(press("d"), "D")).toBe(true);
+    expect(isToggleKey(press("x"), "x")).toBe(true);
+    expect(isToggleKey(press("X"), "x")).toBe(true);
+    expect(isToggleKey(press("d"), "D")).toBe(true);
   });
 
   it("ignora gli altri tasti, le scorciatoie di sistema e le ripetizioni", () => {
-    expect(isDemoToggleKey(press("z"), "x")).toBe(false);
-    expect(isDemoToggleKey(press("x", { metaKey: true }), "x")).toBe(false);
-    expect(isDemoToggleKey(press("x", { ctrlKey: true }), "x")).toBe(false);
-    expect(isDemoToggleKey(press("x", { altKey: true }), "x")).toBe(false);
+    expect(isToggleKey(press("z"), "x")).toBe(false);
+    expect(isToggleKey(press("x", { metaKey: true }), "x")).toBe(false);
+    expect(isToggleKey(press("x", { ctrlKey: true }), "x")).toBe(false);
+    expect(isToggleKey(press("x", { altKey: true }), "x")).toBe(false);
     // Tasto tenuto premuto: niente rimbalzo avanti e indietro.
-    expect(isDemoToggleKey(press("x", { repeat: true }), "x")).toBe(false);
+    expect(isToggleKey(press("x", { repeat: true }), "x")).toBe(false);
+  });
+
+  it("la chiusura scatta con lo spazio, una volta sola anche se tenuto premuto", () => {
+    const space = publicConfig.display.closingToggleKey;
+    expect(space).toBe(" ");
+    expect(isToggleKey(press(" "), space)).toBe(true);
+    expect(isToggleKey(press(" ", { repeat: true }), space)).toBe(false);
+    expect(isToggleKey(press("x"), space)).toBe(false);
+    // I due interruttori non si pestano i piedi.
+    expect(isToggleKey(press(" "), publicConfig.display.demoToggleKey)).toBe(false);
   });
 });
 
@@ -128,6 +139,11 @@ describe("la modalita' demo non parla con la rete", () => {
 
   it("DemoStage non contiene fetch, socket, client Supabase ne' chiamate alle API", async () => {
     const code = await bundle("src/components/display/DemoStage.tsx");
+    for (const pattern of NETWORK) expect(code).not.toMatch(pattern);
+  });
+
+  it("il file HTML offline non contiene rete, schermata d'ingresso compresa", async () => {
+    const code = await bundle("scripts/offline-demo-entry.tsx");
     for (const pattern of NETWORK) expect(code).not.toMatch(pattern);
   });
 
