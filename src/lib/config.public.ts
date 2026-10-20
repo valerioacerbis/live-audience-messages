@@ -137,8 +137,12 @@ export const publicConfig = {
    * ha modo di riprovare. Meglio dichiararla persa e mostrare l'errore — il
    * rinvio e' idempotente (`clientMsgId` non cambia), quindi se il messaggio
    * era arrivato lo stesso non compare due volte a schermo.
+   *
+   * 20 s e non 12: a 350 spettatori simulati la coda lenta arriva a ~13 s
+   * (Blocco F di NEXT_STEPS.md). Con 12 s qualcuno vedeva l'errore per un
+   * messaggio che in realta' era stato salvato.
    */
-  submitTimeoutMs: int(process.env.NEXT_PUBLIC_SUBMIT_TIMEOUT_MS, 12_000),
+  submitTimeoutMs: int(process.env.NEXT_PUBLIC_SUBMIT_TIMEOUT_MS, 20_000),
 } as const;
 
 export type PublicConfig = typeof publicConfig;

@@ -348,16 +348,24 @@ gira davvero in produzione invece di dedurlo dai default del codice.
 
 ### Le due esecuzioni fatte
 
-| | run 1 — `fra1`, 4 round trip | run 2 — `dub1`, 3 round trip |
-| --- | --- | --- |
-| accettati | 482 | 462 |
-| 429 ambito `ip` / `global` | 0 / 0 | 0 / 0 |
-| p50 | 619 ms | **520 ms** |
-| p95 | 6 620 ms | **10 800 ms** |
-| p99 | 8 678 ms | 13 411 ms |
-| max | 10 061 ms | 14 937 ms |
-| timeout lato client (>15 s) | 0 | 3 |
-| picco accettati in 60 s | 248 | 238 |
+| | run 1 — `fra1`, 4 round trip | run 2 — `dub1`, 3 round trip | run 3 — Supabase **Pro**, 2026-10-20 |
+| --- | --- | --- | --- |
+| accettati | 482 | 462 | 483 |
+| 429 ambito `ip` / `global` | 0 / 0 | 0 / 0 | 0 / 0 |
+| p50 | 619 ms | **520 ms** | 564 ms |
+| p95 | 6 620 ms | **10 800 ms** | 9 400 ms |
+| p99 | 8 678 ms | 13 411 ms | 11 661 ms |
+| max | 10 061 ms | 14 937 ms | 12 755 ms |
+| timeout lato client (>15 s) | 0 | 3 | 0 |
+| picco accettati in 60 s | 248 | 238 | 254 |
+
+Run 3 (codice sequenziale, `dub1`, org Supabase appena passata a Pro): il p95
+non cambia in modo apprezzabile. Due letture possibili, da non confondere:
+il compute del progetto è rimasto Nano anche dopo l'upgrade del piano, oppure
+il database non è il collo di bottiglia (ipotesi 2 sotto). Durante la run
+nessun `/display` era aperto, quindi i 483 messaggi sono rimasti `pending`: lo
+sweeper del dead-man switch gira dentro `getFeed`, ed è il comportamento
+previsto, non un guasto.
 
 ### Cosa è chiuso e non va riaperto
 
@@ -410,7 +418,11 @@ che cambiare a naso può peggiorare invece di migliorare.
 
 ### Perché conta, e quanto
 
-Il timeout di invio dal telefono è a 12 s (`NEXT_PUBLIC_SUBMIT_TIMEOUT_MS`).
+**Aggiornamento 2026-10-20:** il timeout è stato portato da 12 a 20 s dopo la
+run 3 (massimo osservato 12,8 s), e il simulatore ora aspetta 25 s. Il testo
+qui sotto descrive la situazione con 12 s.
+
+Il timeout di invio dal telefono era a 12 s (`NEXT_PUBLIC_SUBMIT_TIMEOUT_MS`).
 Con un p95 a 10,8 s e un massimo a 14,9 s, alla serata vera **qualche persona
 vedrebbe un errore** invece della conferma. Non è il sistema che cade — il
 rinvio è idempotente e non produce doppioni — ma è una brutta figura evitabile.

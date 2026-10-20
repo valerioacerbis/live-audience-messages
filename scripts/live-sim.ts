@@ -122,7 +122,8 @@ async function send(
         sessionId: spectator.sessionId,
         elapsedMs: Math.round(between(4000, 20_000)),
       }),
-      signal: AbortSignal.timeout(15_000),
+      // Oltre il timeout del telefono (20 s): misura la coda lenta invece di troncarla.
+      signal: AbortSignal.timeout(25_000),
     });
 
     let scope: Scope | null = null;
