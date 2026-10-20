@@ -367,6 +367,12 @@ nessun `/display` era aperto, quindi i 483 messaggi sono rimasti `pending`: lo
 sweeper del dead-man switch gira dentro `getFeed`, ed è il comportamento
 previsto, non un guasto.
 
+Run 4 (stesso giorno, compute portato da **Nano a Micro**, timeout telefono
+20 s): accettati 478, 429 `ip`/`global` 0/0, p50 **416 ms**, p95 **8 773 ms**,
+p99 11 134 ms, max 12 859 ms, picco 266/min. Raddoppiare la RAM non ha mosso
+la coda lenta: indizio a favore dell'ipotesi 2 (Vercel), non ancora prova.
+Con il timeout a 20 s nessun invio sarebbe andato in errore.
+
 ### Cosa è chiuso e non va riaperto
 
 - **Le soglie del rate limit sono giuste.** Zero rifiuti di ambito `ip` e
