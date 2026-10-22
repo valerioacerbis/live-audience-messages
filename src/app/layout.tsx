@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
-import { publicConfig } from "@/lib/config.public";
 import "./globals.css";
 
 // `next/font` scarica e ospita il font a build time: nessuna richiesta a un
@@ -12,9 +11,33 @@ const inter = Inter({
   display: "swap",
 });
 
+const TITLE = "Smooth Criminals — Fai una promessa. Cambia il mondo.";
+const DESCRIPTION =
+  "Cosa sei disposto a fare, da oggi, per rendere il mondo un posto migliore? Scrivi la tua promessa: comparirà sul maxischermo.";
+
+/**
+ * Testi dell'anteprima quando il link viene condiviso. L'immagine e' in
+ * `opengraph-image.tsx`, le icone in `icon.png` / `apple-icon.png` /
+ * `favicon.ico`: Next le collega da solo. Niente `metadataBase`: su Vercel
+ * Next usa l'indirizzo di produzione per gli URL assoluti delle immagini.
+ */
 export const metadata: Metadata = {
-  title: publicConfig.event.name,
-  description: "Scrivi il tuo messaggio: comparira' sul maxischermo.",
+  title: TITLE,
+  description: DESCRIPTION,
+  applicationName: "Smooth Criminals",
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "Smooth Criminals",
+    locale: "it_IT",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+  // Condivisibile si', ma fuori dai motori di ricerca: vive una sera sola.
   robots: { index: false, follow: false },
 };
 
