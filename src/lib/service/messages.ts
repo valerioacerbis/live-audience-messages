@@ -15,7 +15,7 @@ import { filterMessage } from "../domain/moderation";
 import { decideIntake, isOperatorPresent, releaseTimestamp } from "../domain/policy";
 import { toPublicMessage, type EventRecord, type PublicMessage } from "../domain/types";
 import { publishEvent } from "../realtime/publish";
-import { checkRateLimit, RATE_LIMIT_MESSAGES } from "../ratelimit";
+import { checkRateLimit, RATE_LIMIT_MESSAGES, sessionCooldownSeconds } from "../ratelimit";
 
 /**
  * Business logic dei messaggi.
@@ -45,9 +45,15 @@ export async function resolveEvent(slug: string): Promise<EventRecord> {
  * L'utente non deve mai sapere se e' finito in coda, e' stato rifiutato o e'
  * gia' a schermo: se lo sapesse, riproverebbe finche' non aggira il filtro.
  * E chi ha scritto qualcosa di normale non merita di vedersi dire "bloccato".
+ *
+ * `cooldownSeconds` dice al telefono quando potra' inviare il prossimo:
+ * uguale per tutti, bot compresi, perche' la risposta non tradisca nulla.
  */
 function accepted(id: string): CreateResult {
-  return { status: 200, body: { ok: true, id, status: "received" } };
+  return {
+    status: 200,
+    body: { ok: true, id, status: "received", cooldownSeconds: sessionCooldownSeconds() },
+  };
 }
 
 export async function createMessage(

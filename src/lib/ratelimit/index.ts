@@ -78,6 +78,21 @@ export async function checkRateLimit(
   return ALLOWED;
 }
 
+/**
+ * Secondi da annunciare al telefono dopo un invio riuscito, prima del
+ * prossimo. Cosi' la schermata di conferma mostra il conto alla rovescia vero
+ * invece di lasciar toccare un pulsante che il server rifiuterebbe.
+ *
+ * E' l'intera finestra di sessione anche quando `max` e' maggiore di 1:
+ * sovrastimare costa qualche secondo di attesa, sottostimare un errore.
+ * `0` quando il limite e' spento: il pulsante resta subito attivo.
+ */
+export function sessionCooldownSeconds(): number {
+  const { enabled, session } = serverConfig.rateLimit;
+  if (!enabled || !isActive(session.max)) return 0;
+  return Math.ceil(session.windowMs / 1000);
+}
+
 /** Messaggi umani: il pubblico non deve mai leggere un codice di errore. */
 export const RATE_LIMIT_MESSAGES: Record<RateLimitScope, string> = {
   session: "Hai appena inviato un messaggio. Aspetta un attimo prima del prossimo.",

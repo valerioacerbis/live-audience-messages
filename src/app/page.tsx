@@ -1,7 +1,6 @@
 import Image from "next/image";
 
 import { MessageForm } from "@/components/audience/MessageForm";
-import { publicConfig } from "@/lib/config.public";
 
 /**
  * Pagina del pubblico.
@@ -24,7 +23,7 @@ export default function AudiencePage() {
             className="mx-auto h-14 w-auto"
           />
           <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
-            {publicConfig.event.name}
+            Smooth Criminals
           </p>
           <h1 className="text-3xl font-semibold tracking-tight text-balance">
             Fai una promessa. Cambia il mondo.

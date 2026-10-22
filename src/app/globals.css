@@ -15,9 +15,15 @@
   --animate-enter: enter 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-exit: exit 400ms cubic-bezier(0.7, 0, 0.84, 0) both;
   --animate-breathe: breathe 8s ease-in-out infinite;
-  --animate-success-pop: success-pop 550ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  --animate-success-ring: success-ring 900ms ease-out both;
-  --animate-draw-check: draw-check 450ms ease-out 300ms both;
+  --animate-promise-bloom: promise-bloom 1600ms ease-out both;
+  --animate-glow: glow 6s ease-in-out 1600ms infinite;
+  --animate-ignite: ignite 900ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both;
+  --animate-draw-check: draw-check 600ms ease-out 650ms both;
+  --animate-ripple: ripple 3.6s cubic-bezier(0.2, 0.6, 0.35, 1) 6 both;
+  --animate-orbit: orbit 9s linear 900ms infinite both;
+  --animate-ember: ember linear 3 both;
+  --animate-reveal: enter 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-cooldown: cooldown linear both;
 }
 
 @keyframes enter {
@@ -58,16 +64,40 @@
   }
 }
 
-/* Il cerchio del successo entra con un piccolo rimbalzo, non solo dissolvenza:
-   e' il momento che deve farsi notare piu' di ogni altro nella pagina. */
-@keyframes success-pop {
+/* --- Conferma della promessa (PromiseSent.tsx) ----------------------
+   Solo transform e opacita': devono girare fluide su qualunque telefono. */
+
+/* Il bagliore di fondo si apre una volta, poi respira con `glow`.
+   Solo opacita': il livello e' grande quanto lo schermo. */
+@keyframes promise-bloom {
   from {
     opacity: 0;
-    transform: scale(0.4);
   }
-  60% {
+  to {
     opacity: 1;
-    transform: scale(1.08);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* La promessa si accende: da un punto di luce a sfera, con un piccolo
+   rimbalzo. E' il momento che deve farsi notare piu' di ogni altro. */
+@keyframes ignite {
+  from {
+    opacity: 0;
+    transform: scale(0.1);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.12);
   }
   to {
     opacity: 1;
@@ -75,16 +105,61 @@
   }
 }
 
-/* Un solo anello che si espande e svanisce dietro al cerchio, non un loop:
-   e' un colpo d'occhio unico, non un'animazione di sfondo. */
-@keyframes success-ring {
+/* Onde nell'acqua: partono dalla promessa e si perdono verso l'esterno.
+   Finiscono a opacita' 0, quindi con il movimento ridotto spariscono.
+   Sei giri e poi basta (anche le scintille si fermano dopo tre): chi tiene
+   il telefono acceso in tasca non deve pagarle in batteria per tutta la
+   sera. Scala massima 2.6: l'onda resta dentro uno schermo da 320 px senza
+   far comparire lo scorrimento orizzontale, che sui browser vecchi non si
+   puo' tagliare con `overflow: clip`. */
+@keyframes ripple {
   from {
-    opacity: 0.6;
-    transform: scale(0.8);
+    opacity: 0.8;
+    transform: scale(0.85);
   }
   to {
     opacity: 0;
-    transform: scale(1.9);
+    transform: scale(2.6);
+  }
+}
+
+@keyframes orbit {
+  from {
+    opacity: 0;
+    transform: rotate(0deg);
+  }
+  8% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: rotate(360deg);
+  }
+}
+
+/* Scintille che salgono come le luci in sala. `--ember-dx` e' la deriva
+   laterale, diversa per ognuna. */
+@keyframes ember {
+  from {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--ember-dx, 0), -85vh) scale(0.4);
+  }
+}
+
+/* Riempimento del pulsante durante l'attesa prima del prossimo invio. */
+@keyframes cooldown {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 

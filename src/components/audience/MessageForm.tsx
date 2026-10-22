@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { publicConfig } from "@/lib/config.public";
 import { countGraphemes } from "@/lib/domain/sanitize";
 
+import { PromiseSent } from "./PromiseSent";
+
 /**
  * Form del pubblico.
  *
@@ -53,6 +55,8 @@ export function MessageForm({ children }: MessageFormProps) {
   /** Honeypot: resta vuoto per un umano, un bot lo compila. */
   const [honeypot, setHoneypot] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Attesa annunciata dal server prima del prossimo invio. */
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   /** Impostato al mount: `Date.now()` durante il render non e' puro. */
   const openedAt = useRef(0);
@@ -102,7 +106,10 @@ export function MessageForm({ children }: MessageFormProps) {
         }),
       });
 
-      const data = (await response.json().catch(() => ({}))) as { message?: string };
+      const data = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        cooldownSeconds?: number;
+      };
 
       if (!response.ok) {
         setError(data.message ?? "Non è riuscito. Riprova tra un attimo.");
@@ -110,6 +117,11 @@ export function MessageForm({ children }: MessageFormProps) {
         return;
       }
 
+      // Campo assente (risposta troncata, server vecchio): pulsante subito
+      // attivo. Al peggio il server rispondera' "aspetta un attimo".
+      setCooldownSeconds(
+        typeof data.cooldownSeconds === "number" && data.cooldownSeconds > 0 ? data.cooldownSeconds : 0,
+      );
       setPhase("sent");
     } catch {
       setError("Connessione assente. Riprova tra un attimo.");
@@ -131,48 +143,7 @@ export function MessageForm({ children }: MessageFormProps) {
     // l'attenzione deve andare tutta alla conferma, non essere condivisa
     // con l'intestazione della pagina (che il padre passa come children,
     // e che quindi semplicemente non viene renderizzata in questo ramo).
-    return (
-      <div className="flex min-h-[70dvh] flex-col items-center justify-center gap-6 text-center">
-        <div className="relative grid size-24 place-items-center">
-          {/* Anello che si espande una volta sola dietro al cerchio: e' il
-              colpo d'occhio che deve far notare il successo a prima vista. */}
-          <span
-            aria-hidden
-            className="animate-success-ring absolute inset-0 rounded-full border-2 border-emerald-500/60"
-          />
-          <div className="animate-success-pop grid size-20 place-items-center rounded-full border border-emerald-500/40 bg-emerald-500/10">
-            <svg viewBox="0 0 24 24" className="size-9 stroke-emerald-500" fill="none" strokeWidth={2.5}>
-              {/* pathLength normalizza la lunghezza del tracciato a 1, cosi'
-                  stroke-dasharray/offset non dipendono dalla geometria reale
-                  del path: la spunta si disegna invece di apparire di colpo. */}
-              <path
-                d="M4 12.5 9.5 18 20 7"
-                pathLength={1}
-                strokeDasharray={1}
-                strokeDashoffset={1}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="animate-draw-check"
-              />
-            </svg>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <p className="text-2xl font-semibold">La tua promessa è nello specchio.</p>
-          <p className="text-balance text-ink-dim">
-            La vedrai sul maxischermo durante il brano Man in the Mirror.
-            Perché il mondo cambia solo quando, per primo, cambi tu.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={writeAnother}
-          className="rounded-full border border-line px-6 py-3 text-sm font-medium text-ink-dim transition hover:border-ink-faint hover:text-ink active:scale-98"
-        >
-          Scrivine un&apos;altra
-        </button>
-      </div>
-    );
+    return <PromiseSent cooldownSeconds={cooldownSeconds} onWriteAnother={writeAnother} />;
   }
 
   return (

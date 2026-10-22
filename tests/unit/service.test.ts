@@ -47,6 +47,13 @@ beforeEach(async () => {
 });
 
 describe("createMessage", () => {
+  it("dice al telefono quanti secondi aspettare prima del prossimo invio", async () => {
+    const { enabled, session } = serverConfig.rateLimit;
+    const expected = enabled && session.max > 0 ? Math.ceil(session.windowMs / 1000) : 0;
+    const result = await createMessage(payload(), ctx);
+    expect(result.body.cooldownSeconds).toBe(expected);
+  });
+
   it("accetta un messaggio normale", async () => {
     const result = await createMessage(payload(), ctx);
     expect(result.status).toBe(200);
