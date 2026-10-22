@@ -1,6 +1,5 @@
 "use client";
 
-import { Great_Vibes } from "next/font/google";
 import { useEffect, useRef, useState } from "react";
 
 /**
@@ -15,21 +14,6 @@ import { useEffect, useRef, useState } from "react";
  * Con `prefers-reduced-motion` la regola globale in globals.css porta ogni
  * animazione al fotogramma finale: resta il testo, fermo e leggibile.
  */
-
-/**
- * Calligrafia per il "Grazie" firmato. Senza preload: la schermata compare
- * solo dopo l'invio, e il form non deve contendere banda a un font che forse
- * non servira'. Il file parte quando la firma viene disegnata (qualche
- * secondo prima che diventi visibile); se la rete e' lenta, `swap` mostra
- * intanto un corsivo di sistema.
- */
-const signature = Great_Vibes({
-  weight: "400",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-  fallback: ["cursive"],
-});
 
 const HEADLINE = "Ogni grande cambiamento comincia così.".split(" ");
 
@@ -181,14 +165,6 @@ export function PromiseSent({ cooldownSeconds, onWriteAnother }: PromiseSentProp
               : "Fai un'altra promessa"}
           </span>
         </button>
-      </div>
-
-      <div
-        className={`${signature.className} animate-reveal relative -mt-2 text-ink`}
-        style={{ animationDelay: "2.8s" }}
-      >
-        <p className="text-5xl leading-tight">Grazie</p>
-        <p className="mt-1 text-2xl text-accent">Smooth Criminals</p>
       </div>
     </div>
   );
